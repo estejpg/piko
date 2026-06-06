@@ -6,8 +6,8 @@ Piko is a lightweight Chrome extension for saving Instagram media, YouTube thumb
 
 - Download Instagram feed posts, reels, single images, and carousels.
 - Use profile-grid hover controls, multi-select, and thumbnail mode.
-- Save YouTube thumbnails from watch pages, home cards, and recommended videos.
-- Download YouTube video transcripts as clean text files from watch pages.
+- Save YouTube thumbnails from watch pages, home cards, recommended videos, and channel pages.
+- Download YouTube video transcripts as clean text files from watch pages (long-press thumbnail button to toggle transcript mode).
 - Reuse shared download settings and folder preferences across supported surfaces.
 
 ## Load Unpacked
