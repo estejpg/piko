@@ -7,44 +7,88 @@
       '<button type="button" class="ig-bulk-youtube-thumbnail-button" data-action="thumbnail" aria-label="Download YouTube thumbnail" title="Download YouTube thumbnail">',
       window.IgBulkIcons.icon("thumbnail"),
       '<span>Thumbnail</span>',
-      '</button>',
-      '<button type="button" class="ig-bulk-youtube-transcript-button" data-action="transcript" aria-label="Download transcript" title="Download transcript">',
-      window.IgBulkIcons.icon("download"),
-      '<span>Transcript</span>',
       '</button>'
     ].join("");
 
-    const thumbnailButton = root.querySelector('[data-action="thumbnail"]');
-    const transcriptButton = root.querySelector('[data-action="transcript"]');
+    const button = root.querySelector('[data-action="thumbnail"]');
+    let longPressTimer = null;
+    let isTranscriptMode = false;
+    let isLongPressTriggered = false;
 
-    thumbnailButton.addEventListener("click", (event) => {
+    function setTranscriptMode(enabled) {
+      isTranscriptMode = Boolean(enabled);
+      button.classList.toggle("is-transcript-active", isTranscriptMode);
+      button.setAttribute("aria-pressed", isTranscriptMode ? "true" : "false");
+      if (isTranscriptMode) {
+        button.title = "Download transcript (long-press to disable)";
+        button.setAttribute("aria-label", "Download transcript");
+        const span = button.querySelector("span");
+        if (span) span.textContent = "Transcript";
+      } else {
+        button.title = "Download YouTube thumbnail (long-press for transcript)";
+        button.setAttribute("aria-label", "Download YouTube thumbnail");
+        const span = button.querySelector("span");
+        if (span) span.textContent = "Thumbnail";
+      }
+    }
+
+    function startLongPress(event) {
+      isLongPressTriggered = false;
+      longPressTimer = setTimeout(() => {
+        isLongPressTriggered = true;
+        setTranscriptMode(!isTranscriptMode);
+      }, 500);
+    }
+
+    function cancelLongPress() {
+      if (longPressTimer) {
+        clearTimeout(longPressTimer);
+        longPressTimer = null;
+      }
+    }
+
+    function handleClick(event) {
       event.preventDefault();
       event.stopPropagation();
-      if (thumbnailButton.disabled) return;
-      actions.download(thumbnailButton);
-    });
+      if (button.disabled) return;
+      
+      if (isLongPressTriggered) {
+        isLongPressTriggered = false;
+        return;
+      }
 
-    transcriptButton.addEventListener("click", (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      if (transcriptButton.disabled) return;
-      if (actions.downloadTranscript) actions.downloadTranscript(transcriptButton);
-    });
+      if (isTranscriptMode) {
+        if (actions.downloadTranscript) actions.downloadTranscript(button);
+      } else {
+        if (actions.download) actions.download(button);
+      }
+    }
+
+    button.addEventListener("mousedown", startLongPress);
+    button.addEventListener("touchstart", startLongPress);
+    button.addEventListener("mouseup", cancelLongPress);
+    button.addEventListener("touchend", cancelLongPress);
+    button.addEventListener("mouseleave", cancelLongPress);
+    button.addEventListener("touchcancel", cancelLongPress);
+    button.addEventListener("click", handleClick);
+
+    setTranscriptMode(false);
 
     return {
       element: root,
       setBusy(busy) {
-        thumbnailButton.disabled = Boolean(busy);
-        thumbnailButton.classList.toggle("is-loading", Boolean(busy));
-        thumbnailButton.setAttribute("aria-disabled", busy ? "true" : "false");
+        button.disabled = Boolean(busy);
+        button.classList.toggle("is-loading", Boolean(busy));
+        button.setAttribute("aria-disabled", busy ? "true" : "false");
       },
       setTranscriptBusy(busy) {
-        transcriptButton.disabled = Boolean(busy);
-        transcriptButton.classList.toggle("is-loading", Boolean(busy));
-        transcriptButton.setAttribute("aria-disabled", busy ? "true" : "false");
+        button.disabled = Boolean(busy);
+        button.classList.toggle("is-loading", Boolean(busy));
+        button.setAttribute("aria-disabled", busy ? "true" : "false");
       },
       setTranscriptAvailable(available) {
-        transcriptButton.style.display = available ? "" : "none";
+        // Keep the button visible regardless of transcript availability
+        // User can still try to access transcript mode
       }
     };
   }

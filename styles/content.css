@@ -42,7 +42,6 @@
 .ig-bulk-tile-download,
 .ig-bulk-tile-select,
 .ig-bulk-youtube-thumbnail-button,
-.ig-bulk-youtube-transcript-button,
 .ig-bulk-selection-bar {
   box-sizing: border-box;
   color: var(--igb-slate);
@@ -63,7 +62,6 @@
 .ig-bulk-tile-download *,
 .ig-bulk-tile-select *,
 .ig-bulk-youtube-thumbnail-button *,
-.ig-bulk-youtube-transcript-button *,
 .ig-bulk-selection-bar * {
   box-sizing: border-box;
   font: inherit;
@@ -118,7 +116,6 @@
 .ig-bulk-feed__toggle,
 .ig-bulk-feed button,
 .ig-bulk-youtube-thumbnail-button,
-.ig-bulk-youtube-transcript-button,
 .ig-bulk-youtube-card-button,
 .ig-bulk-youtube-selection-dock button,
 .ig-bulk-selection-bar button {
@@ -233,6 +230,27 @@
   color: var(--igb-thumbnail-blue);
 }
 
+.ig-bulk-youtube-thumbnail-button.is-transcript-active {
+  border-color: rgba(147, 51, 234, 0.28);
+  background: rgba(147, 51, 234, 0.12);
+  box-shadow: 0 0 0 4px rgba(147, 51, 234, 0.09), 0 8px 22px rgba(147, 51, 234, 0.11);
+  color: rgb(147, 51, 234);
+  transform: scale(1.03);
+}
+
+.ig-bulk-youtube-thumbnail-button.is-transcript-active:hover,
+.ig-bulk-youtube-thumbnail-button.is-transcript-active:focus-visible {
+  border-color: rgba(147, 51, 234, 0.42);
+  background: rgba(147, 51, 234, 0.16);
+  color: rgb(147, 51, 234);
+  outline: none;
+  transform: scale(1.04);
+}
+
+.ig-bulk-youtube-thumbnail-button.is-transcript-active .ig-bulk-icon {
+  filter: drop-shadow(0 2px 6px rgba(147, 51, 234, 0.14));
+}
+
 .ig-bulk-profile-dock__status {
   max-width: 96px;
   min-height: 26px;
@@ -338,7 +356,6 @@
 .ig-bulk-inline-download.is-loading .ig-bulk-icon,
 .ig-bulk-tile-download.is-loading .ig-bulk-icon,
 .ig-bulk-youtube-thumbnail-button.is-loading .ig-bulk-icon,
-.ig-bulk-youtube-transcript-button.is-loading .ig-bulk-icon,
 .ig-bulk-youtube-card-button.is-loading .ig-bulk-icon,
 .ig-bulk-youtube-selection-dock button.is-loading .ig-bulk-icon,
 .ig-bulk-selection-bar button.is-loading .ig-bulk-icon {
@@ -566,13 +583,11 @@
 .ig-bulk-youtube-control {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
   margin-left: 8px;
   vertical-align: middle;
 }
 
-.ig-bulk-youtube-thumbnail-button,
-.ig-bulk-youtube-transcript-button {
+.ig-bulk-youtube-thumbnail-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -589,9 +604,7 @@
 }
 
 .ig-bulk-youtube-thumbnail-button:hover,
-.ig-bulk-youtube-thumbnail-button:focus-visible,
-.ig-bulk-youtube-transcript-button:hover,
-.ig-bulk-youtube-transcript-button:focus-visible {
+.ig-bulk-youtube-thumbnail-button:focus-visible {
   background: var(--igb-action-soft);
   border-color: rgba(89, 46, 255, 0.24);
   color: var(--igb-action-violet);
@@ -599,8 +612,7 @@
   transform: translateY(-1px);
 }
 
-.ig-bulk-youtube-thumbnail-button.is-loading,
-.ig-bulk-youtube-transcript-button.is-loading {
+.ig-bulk-youtube-thumbnail-button.is-loading {
   cursor: progress;
   opacity: 0.72;
 }
@@ -891,7 +903,6 @@
 .ig-bulk-icon-button:active,
 .ig-bulk-feed__toggle:active,
 .ig-bulk-youtube-thumbnail-button:active,
-.ig-bulk-youtube-transcript-button:active,
 .ig-bulk-youtube-card-button:active,
 .ig-bulk-inline-download:active,
 .ig-bulk-tile-download:active,
@@ -918,7 +929,6 @@
   .ig-bulk-profile-dock,
   .ig-bulk-feed-dock,
   .ig-bulk-youtube-thumbnail-button,
-  .ig-bulk-youtube-transcript-button,
   .ig-bulk-selection-bar,
   .ig-bulk-youtube-selection-dock,
   .ig-bulk-toast {
@@ -932,7 +942,6 @@
   .ig-bulk-inline-download.is-loading .ig-bulk-icon,
   .ig-bulk-tile-download.is-loading .ig-bulk-icon,
   .ig-bulk-youtube-thumbnail-button.is-loading .ig-bulk-icon,
-  .ig-bulk-youtube-transcript-button.is-loading .ig-bulk-icon,
   .ig-bulk-youtube-card-button.is-loading .ig-bulk-icon,
   .ig-bulk-youtube-selection-dock button.is-loading .ig-bulk-icon,
   .ig-bulk-selection-bar button.is-loading .ig-bulk-icon {

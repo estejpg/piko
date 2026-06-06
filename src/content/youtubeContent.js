@@ -48,6 +48,15 @@
     }
   }
 
+  function isChannelRoute() {
+    try {
+      const url = new URL(location.href);
+      return url.pathname.startsWith("/@") || url.pathname.startsWith("/c/") || url.pathname.startsWith("/channel/") || url.pathname.startsWith("/user/");
+    } catch (error) {
+      return false;
+    }
+  }
+
   function videoIdFromHref(href) {
     try {
       const url = new URL(href, location.origin);
@@ -351,9 +360,6 @@
     }
     if (!control.element.isConnected || control.element.parentElement !== target) target.appendChild(control.element);
     
-    const available = await transcript.checkTranscriptAvailable();
-    control.setTranscriptAvailable(available);
-    
     lastVideoId = videoId;
     return true;
   }
@@ -370,17 +376,19 @@
       return Array.from(related.querySelectorAll("ytd-compact-video-renderer"));
     }
 
-    if (!isHomeRoute()) return [];
+    if (isHomeRoute() || isChannelRoute()) {
+      return Array.from(
+        document.querySelectorAll(
+          [
+            "ytd-rich-item-renderer",
+            "ytd-video-renderer",
+            "ytd-grid-video-renderer"
+          ].join(",")
+        )
+      );
+    }
 
-    return Array.from(
-      document.querySelectorAll(
-        [
-          "ytd-rich-item-renderer",
-          "ytd-video-renderer",
-          "ytd-grid-video-renderer"
-        ].join(",")
-      )
-    );
+    return [];
   }
 
   function cardDataFromRoot(card) {
@@ -456,7 +464,7 @@
   }
 
   function refreshCards() {
-    if (!currentVideoId() && !isHomeRoute()) {
+    if (!currentVideoId() && !isHomeRoute() && !isChannelRoute()) {
       destroyCardControls();
       if (!selectionBusy) selected.clear();
       syncSelectionUi();
