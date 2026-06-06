@@ -1,6 +1,6 @@
 # Reference Notes For Cursor
 
-This file captures repo-safe lessons from the Chrome extensions that were studied while developing Piko. Cursor cloud agents can access this repository, but they cannot access local folders on the developer's Mac. Do not copy third-party extension code into Piko. Use these notes only as design and architecture context.
+This file captures repo-safe lessons from the Chrome extensions that were studied while developing Piko. Cursor cloud agents can access this repository, including the separated third-party reference folders under `references/extension-references/`. Do not copy third-party extension code into Piko. Use these notes and folders only as design and architecture context.
 
 ## Why This Exists
 
@@ -13,13 +13,14 @@ Cursor should receive:
 - Risk notes and constraints.
 - UI/interaction principles.
 - Validation ideas.
+- Clearly separated reference folders under `references/extension-references/` when direct inspection is useful.
 
 Cursor should not receive:
 
-- Raw third-party source files.
 - Decompiled/minified bundles copied into this repo.
 - Assets, icons, or branding from other extensions.
 - Private implementation details used verbatim.
+- Any reference code mixed into `src/`, `styles/`, `manifest.json`, or other Piko runtime files.
 
 ## Reference Extensions Studied
 
@@ -259,28 +260,25 @@ Risks:
 
 Screenshots or short human-written summaries are safer than copied source. If a specific snippet from a third-party extension seems important, rewrite the idea in original words and implement it using Piko's existing modules.
 
-## Known Local Reference Folder Status
+## Included Reference Folder Status
 
-The reference extension folders are not part of this repo and should stay out of GitHub. As of this handoff, Piko's repo root is clean and contains only the extension source and documentation.
+The reference extension folders are included in this repo under `references/extension-references/` for Cursor cloud agents. They are third-party unpacked Chrome extensions and are included only for implementation study.
 
-Suggested local-only organization, if the reference folders still exist elsewhere on the developer's Mac:
+Current organization:
 
 ```text
-Extension References/
+references/extension-references/
+  README.md
   instagram/
     turbo-downloader-for-instagram/
   youtube/
-    viewstats/
+    viewstats-youtube-analytics/
     ostendo-youtube-screenshots/
-    screenshot-youtube/
   workflow-ui/
     clickpilot-clipper/
-    klemmbrett/
-  notes/
-    README.md
 ```
 
-Keep that folder outside the Piko repo. Do not commit it.
+Keep this folder separate from Piko's runtime source. Do not copy files from it into the extension implementation.
 
 ## Safe Next Steps For Cursor
 
@@ -290,4 +288,3 @@ Keep that folder outside the Piko repo. Do not commit it.
 4. Run the validation commands from `HANDOFF.md`.
 5. Make small, focused changes that preserve the existing architecture.
 6. Manually QA in Chrome with the unpacked extension when working on host-page UI.
-

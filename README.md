@@ -24,3 +24,4 @@ Piko is a lightweight Chrome extension for saving Instagram media and YouTube th
 - `src/media` resolves Instagram media into normalized downloadable items.
 - `src/downloads` handles file saving.
 - `styles` contains content and options page styling.
+- `references/extension-references` contains third-party unpacked extension references for implementation study only. Do not load, import, or mix these files into Piko.
