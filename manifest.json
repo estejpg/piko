@@ -58,6 +58,7 @@
         "src/downloads/downloader.js",
         "src/ui/icons.js",
         "src/ui/ToastHost.js",
+        "src/media/youtubeTranscript.js",
         "src/ui/YouTubeThumbnailControl.js",
         "src/content/youtubeContent.js"
       ],

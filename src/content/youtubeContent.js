@@ -3,6 +3,7 @@
   const filenameTools = window.IgBulkFilename;
   const downloader = window.IgBulkDownloader;
   const ui = window.IgBulkYouTubeThumbnailControl;
+  const transcript = window.IgBulkYouTubeTranscript;
 
   let settings = settingsStore.defaults();
   let control = null;
@@ -288,15 +289,71 @@
     );
   }
 
-  function mountWatchControl(videoId) {
+  async function downloadTranscript(busyControl) {
+    const videoId = currentVideoId();
+    if (!videoId) {
+      showToast({ title: "No video detected", detail: "Could not find a video on this page.", tone: "warning" });
+      return;
+    }
+
+    const cardData = currentPageCardData();
+    const videoTitle = cardData ? cardData.title : videoId;
+
+    if (busyControl && busyControl.setTranscriptBusy) busyControl.setTranscriptBusy(true);
+
+    const toastId = showToast({ title: "Extracting transcript", detail: videoTitle, tone: "progress", progress: 15 }, 0);
+    try {
+      const result = await transcript.extractTranscript(videoId);
+      
+      const item = {
+        id: videoId,
+        ownerUsername: cardData ? cardData.channelName : "youtube",
+        takenAt: Math.floor(Date.now() / 1000),
+        mediaType: "transcript",
+        filename: `${videoTitle.replace(/[<>:"/\\|?*]/g, "_")}.txt`,
+        order: 1
+      };
+      const processedItem = filenameTools.applyPattern([item], settings)[0];
+      
+      const blob = new Blob([result.text], { type: "text/plain;charset=utf-8" });
+      
+      updateToast(toastId, { title: "Downloading transcript", detail: processedItem.filename, tone: "progress", progress: 65 });
+      const downloadResult = await downloader.saveBlobItem(processedItem, blob);
+      
+      updateToast(toastId, {
+        title: "Transcript saved",
+        detail: downloadResult && downloadResult.directoryName ? `Saved to ${downloadResult.directoryName}` : processedItem.filename,
+        tone: "success",
+        progress: null,
+        timeoutMs: 3600
+      });
+    } catch (error) {
+      updateToast(toastId, {
+        title: "Transcript download failed",
+        detail: error.message || "Could not download transcript for this video.",
+        tone: "error",
+        progress: null,
+        timeoutMs: 5200
+      });
+    } finally {
+      if (busyControl && busyControl.setTranscriptBusy) busyControl.setTranscriptBusy(false);
+    }
+  }
+
+  async function mountWatchControl(videoId) {
     const target = findMountTarget();
     if (!target) return false;
     if (!control) {
       control = ui.createYouTubeThumbnailControl({
-        download: () => downloadCardThumbnail(currentPageCardData(), control)
+        download: () => downloadCardThumbnail(currentPageCardData(), control),
+        downloadTranscript: () => downloadTranscript(control)
       });
     }
     if (!control.element.isConnected || control.element.parentElement !== target) target.appendChild(control.element);
+    
+    const available = await transcript.checkTranscriptAvailable();
+    control.setTranscriptAvailable(available);
+    
     lastVideoId = videoId;
     return true;
   }
