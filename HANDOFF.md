@@ -19,9 +19,12 @@ Piko is a Manifest V3 Chrome extension for contextual media downloading on Insta
   - `options.html`
   - `src/`
   - `styles/`
+  - `references/extension-references/`
 - There is no build pipeline, package manager setup, or bundler. The extension is plain JavaScript loaded directly by `manifest.json`.
 
 Do not reintroduce the old wrapper folder unless there is a strong packaging reason. Chrome should load the repository root as the unpacked extension.
+
+The `references/extension-references/` folder is intentionally separate from the extension source. It contains third-party unpacked Chrome extensions for Cursor/cloud-agent study only. Do not import, bundle, copy, or execute reference code as part of Piko.
 
 ## How To Run Locally
 
@@ -196,6 +199,7 @@ Internal class names still use the historical `ig-bulk-*` namespace. That is imp
 - Use `apply_patch` or normal source edits; avoid generated bundle churn.
 - After moving files, always validate manifest-listed paths.
 - Do not copy code from the reference extensions that were previously in the workspace. They were used only as architectural inspiration.
+- Treat `references/extension-references/` as read-only reference material and keep implementation work in Piko's own modules.
 - Prefer extending existing modules over adding parallel flows:
   - Media resolution belongs in `src/media/mediaResolver.js`.
   - File saving belongs in `src/downloads/downloader.js`.
@@ -234,4 +238,3 @@ Before starting new work, run:
 git status --short --branch
 git pull --ff-only origin main
 ```
-

@@ -1,0 +1,62 @@
+{
+"update_url": "https://clients2.google.com/service/update2/crx",
+
+  "version": "4.0.8",
+  "manifest_version": 3,
+  "name": "Ostendo – Capture Beautiful YouTube Screenshots",
+  "description": "Capture & Share beautiful Tiles of YouTube Thumbnails & Comments! Customize the shape, content, and theme!",
+  "action": {
+    "default_popup": "popup/index.html",
+    "default_title": "Ostendo",
+    "default_icon": "icon128.png"
+  },
+  "permissions": [
+    "storage",
+    "tabs"
+  ],
+  "host_permissions": [
+    "https://www.youtube.com/*",
+    "https://ostendo.app/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.youtube.com/*"
+      ],
+      "js": [
+        "youtube/index.js"
+      ],
+      "css": [
+        "youtube/style.css"
+      ],
+      "run_at": "document_end"
+    }
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "icons": {
+    "16": "icon16.png",
+    "32": "icon32.png",
+    "48": "icon48.png",
+    "128": "icon128.png"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "rive.wasm",
+        "rive_fallback.wasm",
+        "ostendo_eye.riv",
+        "ostendo_TileButtons-v2.riv",
+        "AoE-SoTD.webp",
+        "AoE-WWDITS.webp",
+        "AoE-LovecraftCountry.webp",
+        "ostendo-pro-release-banner.webp",
+        "ostendo-pro-logo.webp"
+      ],
+      "matches": [
+        "https://www.youtube.com/*"
+      ]
+    }
+  ]
+}
