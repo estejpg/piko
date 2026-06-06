@@ -4,27 +4,47 @@
     root.id = "ig-bulk-youtube-control";
     root.className = "ig-bulk-youtube-control";
     root.innerHTML = [
-      '<button type="button" class="ig-bulk-youtube-thumbnail-button" aria-label="Download YouTube thumbnail" title="Download YouTube thumbnail">',
+      '<button type="button" class="ig-bulk-youtube-thumbnail-button" data-action="thumbnail" aria-label="Download YouTube thumbnail" title="Download YouTube thumbnail">',
       window.IgBulkIcons.icon("thumbnail"),
       '<span>Thumbnail</span>',
+      '</button>',
+      '<button type="button" class="ig-bulk-youtube-transcript-button" data-action="transcript" aria-label="Download transcript" title="Download transcript">',
+      window.IgBulkIcons.icon("download"),
+      '<span>Transcript</span>',
       '</button>'
     ].join("");
 
-    const button = root.querySelector("button");
+    const thumbnailButton = root.querySelector('[data-action="thumbnail"]');
+    const transcriptButton = root.querySelector('[data-action="transcript"]');
 
-    button.addEventListener("click", (event) => {
+    thumbnailButton.addEventListener("click", (event) => {
       event.preventDefault();
       event.stopPropagation();
-      if (button.disabled) return;
-      actions.download(button);
+      if (thumbnailButton.disabled) return;
+      actions.download(thumbnailButton);
+    });
+
+    transcriptButton.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (transcriptButton.disabled) return;
+      if (actions.downloadTranscript) actions.downloadTranscript(transcriptButton);
     });
 
     return {
       element: root,
       setBusy(busy) {
-        button.disabled = Boolean(busy);
-        button.classList.toggle("is-loading", Boolean(busy));
-        button.setAttribute("aria-disabled", busy ? "true" : "false");
+        thumbnailButton.disabled = Boolean(busy);
+        thumbnailButton.classList.toggle("is-loading", Boolean(busy));
+        thumbnailButton.setAttribute("aria-disabled", busy ? "true" : "false");
+      },
+      setTranscriptBusy(busy) {
+        transcriptButton.disabled = Boolean(busy);
+        transcriptButton.classList.toggle("is-loading", Boolean(busy));
+        transcriptButton.setAttribute("aria-disabled", busy ? "true" : "false");
+      },
+      setTranscriptAvailable(available) {
+        transcriptButton.style.display = available ? "" : "none";
       }
     };
   }
