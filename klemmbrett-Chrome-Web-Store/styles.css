@@ -1,0 +1,567 @@
+
+
+#my-extension-note-button {
+    z-index: 1000; /* High z-index to ensure the button floats above page content */
+    /* Add more styles as needed */
+  }
+  
+
+img {
+    max-width: 100%;
+    height: auto;
+}
+
+.test-dings {
+    left: 50%;
+    transform: translate(-50%, -50%);
+    position: fixed;
+    bottom: 0px;
+    background: rgb(46,46,46,0.8);
+    backdrop-filter: blur(8px);
+    padding: 6px 12px;
+    border-radius: 11px;
+}
+
+
+.kb-app-divider-hori {
+    background-color: var(--kb-stroke-col);
+    height: 1px;
+    width: 100%;
+    flex-shrink: 0;
+}
+
+.kb-app-divider-verti {
+    background-color: var(--kb-stroke-col);
+    height: 24px;
+    width: 1px;
+    flex-shrink: 0;
+}
+
+.kb-app-first-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    flex-shrink: 0;
+    margin: auto;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.kb-app-second-row {
+    padding: 0 20px;
+    align-self: stretch;
+    height: 100%;
+    box-sizing: border-box;
+    margin: auto;
+    width: 100%;
+    height: 100%;
+    flex-grow: 0;
+    overflow-x: hidden;
+}
+
+textarea.kb-app-second-row::placeholder { /* Chrome, Firefox, Opera, Safari 10.1+ */
+    color: var(--kb-text-col-less);
+    opacity: 1; /* Firefox */
+}
+
+textarea.kb-app-second-row:-ms-input-placeholder { /* Internet Explorer 10-11 */
+    color: var(--kb-text-col-less);
+}
+
+textarea.kb-app-second-row::-ms-input-placeholder { /* Microsoft Edge */
+    color: var(--kb-text-col-less);
+}
+
+textarea.kb-app-second-row::-webkit-input-placeholder { /* WebKit browsers */
+    color: var(--kb-text-col-less);
+}
+
+.kb-app-third-row {
+    width: 100%;
+    height: 40px;
+    flex-shrink: 0;
+    margin: auto;
+    box-sizing: border-box;
+}
+
+.kb-app-button-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.kb-app-button-wrapper > a {
+    height: 28px !important;
+}
+
+.kb-app-button {
+    background-color: transparent;
+    z-index: 999999;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: 18px;
+    border: none;
+    transition: 0.3s;
+    cursor: pointer;
+    font-family: inter, sans-serif !important;
+
+}
+
+.kb-app-icon-button {
+    border-radius: 4px;
+    height: 28px;
+    width: 28px;
+    color: var(--kb-text-col-less)           
+}
+
+.kb-app-close-button {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    color: var(--kb-text-col-less);
+}
+
+.kb-app-button:hover {
+    background-color: var(--kb-hover-col);
+}
+
+:root {
+    --kb-text-col-default: #D5D5D5;
+    --kb-text-col-less: #AEAEAE;
+    --kb-stroke-col: #5E5E5E;
+    --kb-hover-col: #474747;
+    --kb-bg-col: rgb(46, 46, 46, 0.975);
+    --kb-bg-col-darker: rgb(46, 46, 46, 0.975);
+    --kb-levitate-wrapper: #171717;
+    --kb-smooth-shadow: 0 8px 24px 0 rgba(0,0,0,.2),0 2px 8px 0 rgba(0,0,0,.08),inset 0 0 0 1px hsla(0,0%,100%,.04),0 0 0 1px rgba(0,0,0,.02);
+    --kb-text-link-col: #82BEFF;
+}
+
+:root[data-theme='light'] {
+    --kb-text-col-default: #37352F;
+    --kb-text-col-less: #737373;
+    --kb-stroke-col: #E8E8E8;
+    --kb-hover-col: #E8E8E8;
+    --kb-bg-col: rgba(255, 255, 255, 0.975);  
+    --kb-bg-col-darker: #E8E8E8;
+    --kb-levitate-wrapper: #ffffff;
+    --kb-text-link-col: #2E93FF;
+}
+
+:root[data-theme='dark'] {
+    --kb-text-col-default: #D5D5D5;
+    --kb-text-col-less: #AEAEAE;
+    --kb-stroke-col: #5E5E5E;
+    --kb-hover-col: #474747;
+    --kb-bg-col: rgb(46, 46, 46, 0.975);
+    --kb-bg-col-darker: rgb(46, 46, 46, 0.975);
+    --kb-levitate-wrapper: #171717;
+    --kb-text-link-col: #82BEFF;
+}
+
+.kb-app-wrapper-main {
+    z-index: 99999;
+    color: var(--kb-text-col-default);
+    font-family: inter, sans-serif !important;
+}
+
+.kb-app-checker {
+    height: 28px;
+    width: 84px;
+    left: 50%;
+    transform: translate(-50%);
+    position: fixed;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999999;
+}
+
+.kb-app-visibility-wrapper {
+    display: flex;
+    height: 100%;
+    overflow: hidden;
+    flex-direction: column;
+    visibility: hidden;
+    opacity: 0;
+    transition: opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1), visibility 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 8px 24px 0 rgba(0,0,0,.2),0 2px 8px 0 rgba(0,0,0,.08),inset 0 0 0 1px hsla(0,0%,100%,.04),0 0 0 1px rgba(0,0,0,.02);
+}
+
+.kb-app-wrapper-inner {
+    border: 1px solid linear-gradient(85deg, #5E5E5E 0%, rgba(94, 94, 94, 0.50) 100%);
+    letter-spacing: 0px;
+    height: 28px;
+    width: 84px;
+    transition: height 0.3s cubic-bezier(0.4, 0, 0.2, 1), width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    left: 50%;
+    transform: translate(-50%);
+    position: fixed;
+    bottom: 16px;
+    background: var(--kb-bg-col);
+    backdrop-filter: blur(8px);
+    border-radius: 11px;
+    font-size: 16px;
+    font-weight: 400;
+    z-index: 9999998;
+    overflow: hidden;
+    font-family: inter, sans-serif !important;    
+    letter-spacing: 0px !important;
+}
+
+
+.kb-app-wrapper-inner::selection {
+    background: var(--hoover-col);
+}
+
+
+
+
+.kb-app-extended-background {
+    display: block;
+    background-color: var(--kb-bg-col-darker);
+    opacity: 0;
+    visibility: hidden;
+    position: fixed;
+    top: 0;
+    height: 100vh;
+    width: 100vw;
+    z-index: 999997;
+    backdrop-filter: blur(11px);
+    transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1), visibility 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.kb-app-wrapper-inner.expanded {
+    height: 560px;
+    max-height: 100vh;
+    width: 600px;
+    max-width: 90vw;
+}
+
+.kb-app-smaller-text {
+    font-size: 12px;
+    line-height: 140%;
+    color: var(--kb-text-col-less);
+}
+
+.kb-app-edit-wrapper {
+    width: 100% !important;
+    height: 100% !important;
+    background-color: transparent;
+    color: var(--kb-text-col-default);
+    font-size: 16px;
+    border: none;      
+    font-family: inter, sans-serif !important;
+    resize: none;
+    padding: 0;
+    line-height: 140%;
+}
+
+.kb-app-edit-wrapper:focus {
+    color: var(--kb-text-col-default);
+    border: none;
+    outline: none; 
+    background-color: transparent;
+    background: none;
+}
+
+.kb-app-title {
+    color: var(--kb-text-col-less);
+    font-size: 14px;
+    font-weight: 400 !important;
+}
+
+a {
+    text-decoration: none !important;
+}
+
+.kb-logo-top-left {
+  background-size: 20px;
+  background-position: center;
+  background-repeat: no-repeat;
+  width: 20px;
+  height: 20px;
+}
+
+
+.kb-logo-link-wrapper {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+}
+
+/* Add these styles to your existing <style> block */
+
+.kb-app-visibility-wrapper.visible {
+    visibility: visible;
+    opacity: 1;
+    box-shadow: var(--smooth-shadow);
+}
+
+.kb-app-extended-background.visible {
+    opacity: 1;
+    visibility: visible;
+}
+
+.kb-app-wrapper-inner {
+    height: 28px;
+    bottom: 16px;
+    border: 1px solid linear-gradient(85deg, #5E5E5E 0%, rgba(94, 94, 94, 0.50) 100%);
+    background: var(--kb-bg-col);
+}
+
+.kb-app-smaller-text.prev-text-new {
+    color: linear-gradient(87deg, rgba(46, 46, 46, 0.40) 0%, rgba(46, 46, 46, 0.13) 100%) ;
+}
+
+
+.kb-app-wrapper-inner.normal {
+    height: 560px;
+    max-height: 90vh;
+    width: 600px;
+    max-width: 90vw;
+    bottom: 16px;
+    border: 1px solid var(--kb-stroke-col);
+    background: var(--kb-bg-col);
+    box-shadow: var(--smooth-shadow);
+}
+
+.kb-app-wrapper-inner.extended {
+    height: 100%;
+    width: 100%;
+    bottom: 0;
+    border: none;
+    background-color: transparent;
+    backdrop-filter: blur(11px);
+    box-shadow: none;
+}
+
+/* Quill Styles */
+
+div.ql-editor {
+  max-width: 580px;
+  margin: auto;
+  overflow: visible;
+  padding-top: 16px;
+}
+
+.kb-app-second-row.on-new-tab div.ql-editor {
+    padding-top: 32px;
+}
+
+.ql-bubble .ql-toolbar .ql-formats {
+    margin: 6px;
+}
+
+.ql-bubble .ql-toolbar .ql-formats:first-child {
+    margin-left: 6px;
+}
+
+.ql-bubble .ql-toolbar button.ql-active {
+    background-color: var(--kb-bg-col-darker) !important;
+}
+
+.ql-editor {
+    padding: 0;
+}
+
+.ql-bubble .ql-tooltip {
+    background-color: var(--kb-levitate-wrapper);
+    border-radius: 12px;
+    box-shadow: var(--smooth-shadow);
+    border: 1px solid var(--kb-stroke-col);
+}
+
+.ql-bubble.ql-toolbar button, .ql-bubble .ql-toolbar button {
+    padding: 4px;
+}
+
+ql-formats {
+    stroke: var(--kb-text-col-default) !important;
+    color: var(--text-col-hover) !important;
+}
+
+ql-formats > button.ql-active {
+    stroke: var(--kb-text-col-default) !important;
+    color: var(--text-col-hover) !important;
+}
+
+ql-formats:hover {
+    stroke: var(--kb-text-col-default) !important;
+    color: var(--text-col-hover) !important;
+}
+
+.ql-bubble .ql-toolbar button.ql-active .ql-stroke { 
+    stroke: var(--kb-text-col-default) !important;
+}
+
+.ql-bubble .ql-toolbar button.ql-hover .ql-stroke { 
+    stroke: var(--kb-text-col-default) !important;
+}
+
+.ql-bubble .ql-stroke {
+    stroke: var(--kb-text-col-default) !important;
+}
+
+.ql-bubble .ql-picker { 
+    color: var(--kb-text-col-default) !important;
+}
+
+.ql-bubble .ql-fill {
+    fill: var(--kb-text-col-default) !important;
+}
+
+
+span.ql-picker-label {
+    color: var(--kb-text-col-default) !important;
+}
+
+span.ql-formats {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.ql-editor ol, .ql-editor ul {
+    font-size: 16px;
+    padding-left: 20px;
+    padding-top: 4px;
+    padding-bottom: 4px;
+    max-width: 100%;
+    font-family: inter, sans-serif !important; 
+
+}
+
+.ql-bubble .ql-picker.ql-expanded .ql-picker-options {
+    color: var(--kb-text-col-default) !important;
+    background-color: var(--kb-levitate-wrapper) !important;
+    border-radius: 10px;
+    box-shadow: var(--smooth-shadow);
+    padding: 12px 20px;
+}
+
+span.ql-picker-item { 
+    color: var(--kb-text-col-default) !important;
+}
+
+.ql-editor ol li:not(.ql-direction-rtl), .ql-editor ul li:not(.ql-direction-rtl) {
+    padding-left: 6px;
+    display: flex;
+    justify-content: flex-start;
+    align-items: flex-start;
+    font-family: inter, sans-serif !important; 
+    
+    
+}
+
+.ql-bubble .ql-picker-options .ql-picker-item {
+    padding: 8px 0px;
+}
+
+div.ql-tooltip-editor input {
+    padding: 8px 12px !important;
+    color: var(--kb-text-col-default) !important;
+}
+
+
+.ql-editor p {
+    line-height: 140%;
+    font-size: 16px;
+    font-weight: 400;
+    font-family: inter, sans-serif !important;
+    max-width: 100%;
+}
+
+.ql-editor p, .ql-editor h1, .ql-editor h2, .ql-editor li {
+  color: var(--kb-text-col-default) !important;
+}
+
+.ql-bubble .ql-editor h1 {
+    font-size: 26px;
+    line-height: 140%;
+    font-weight: 500;
+    font-family: inter, sans-serif !important;
+}
+
+.ql-bubble .ql-editor h2 {
+    font-size: 22px;
+    font-weight: 500;
+    line-height: 140%;
+    font-family: inter, sans-serif !important;
+}
+
+.ql-editor ul > li::before {
+    caret-color: auto;
+    content: " ";
+    display: block;
+    width: 20px;
+    height: 22px;
+    margin-bottom: 1px;
+    background-color: transparent; /* Ensures the background of the pseudo-element is transparent */
+    background-image: radial-gradient(circle 2.5px, var(--kb-text-col-default) 99%, transparent 100%);
+    background-position: center;
+    background-repeat: no-repeat;
+    font-family: inter, sans-serif !important;
+    flex-shrink: 0; 
+}
+
+.ql-editor ol li::before {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.ql-bubble .ql-toolbar button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 4px;
+    margin: 0 2px;
+    transition: 0.16s;
+}
+
+.ql-bubble .ql-toolbar button:hover {   
+    background-color: var(--kb-bg-col-darker) !important;
+}
+
+.ql-bubble .ql-editor a {
+    color: var(--kb-text-link-col) !important;
+    text-decoration: underline;
+}
+
+div.ql-editor:focus  {
+    outline: none !important;
+}        
+
+a::before, a::after {
+    display: none;
+}
+
+#kb-app-edit-container > div.ql-tooltip > span {   
+    display: none;
+} 
+
+.ql-editor.ql-blank::before {
+    max-width: 564px;
+    color: var(--kb-text-col-less);
+    margin: auto;
+    font-size: 16px;
+    font-style: normal;
+    opacity: 0.5;
+}
+
+
+
+
+
+

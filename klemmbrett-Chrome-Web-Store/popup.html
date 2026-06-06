@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<!--  <script src="application.js"></script> -->
+<script src="popup.js"></script>
+<link rel=¨stylesheet¨ type=¨text/css¨ href=¨styles.css¨>
+
+<style>
+    .kb-app-wrapper-inner {
+        display: none !important;
+    }
+</style>
+
+<body style="background-color: var(--kb-bg-col);">
+
+    <style>
+        :root {
+            --kb-text-col-default: #D5D5D5;
+            --kb-text-col-less: #AEAEAE;
+            --kb-stroke-col: #5E5E5E;
+            --kb-hover-col: #474747;
+            --kb-bg-col: rgb(46, 46, 46, 0.9);
+            --kb-bg-col-darker: rgb(46, 46, 46, 0.95);
+        }
+
+        .kb-app-popup-divider-hori {
+            background-color: var(--kb-stroke-col);
+            height: 1px;
+            width: 95%;
+            margin: auto;
+        }
+
+        .kb-app-popup-divider-verti {
+            background-color: var(--kb-stroke-col);
+            height: 24px;
+            width: 1px;
+        }
+
+        .kb-app-popup-first-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 8px 12px 8px;
+            flex-shrink: 0;
+            margin: auto;
+        }
+
+        .kb-app-popup-second-row {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            padding: 20px 8px 12px 8px;
+            height: 100%;
+            margin: auto;
+            height: 100%;
+            gap: 16px;
+            position: relative;
+        }
+
+        .kb-app-popup-button-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .kb-app-popup-button {
+            background-color: transparent;
+            z-index: 999999;
+            background-position: center;
+            background-repeat: no-repeat;
+            background-size: 18px;
+            border: none;
+            transition: 0.3s;
+            cursor: pointer;
+        }
+
+
+
+        .kb-app-popup-icon-button {
+            border-radius: 4px;
+            height: 28px;
+            width: 28px;
+            color: var(--kb-text-col-less)
+        }
+
+        .kb-app-popup-close-button {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            color: var(--kb-text-col-less);
+        }
+
+        .kb-app-popup-button:hover {
+            background-color: var(--kb-hover-col);
+        }
+
+
+        .kb-app-popup-wrapper-main {
+            color: var(--kb-text-col-default);
+            font-family: inter, sans-serif !important;
+            width: 360px;
+        }
+
+        #checkboxLabel {
+            position: absolute;
+            left: 0px;
+            background-image: url('images/checkbox-unchecked.svg');
+            background-repeat: no-repeat;
+            background-position: left;
+        }
+
+        #checkEnable:checked+#checkboxLabel {
+            background-image: url('images/checkbox-checked.svg');
+            background-repeat: no-repeat;
+            background-position: left;
+        }
+
+        .kb-admin-button {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            padding: 4px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .kb-inline-button {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            user-select: none;
+            cursor: pointer;
+            position: relative;
+
+        }
+
+        .kb-inline-check {
+            padding-left: 22px;
+            width: 160px;
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            gap: 4px;
+            user-select: none;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .kb-small-label {
+            color: var(--kb-text-col-less);
+            font-size: 9px;
+            line-height: 100%;
+            padding: 2px 4px;
+            border-radius: 40px;
+            border: 1px solid var(--kb-stroke-col);
+        }
+
+        .kb-title-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .kb-logo-top-left {
+            height: 16px;
+            width: 16px;
+        }
+
+        img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        a {
+            text-decoration: none;
+            color: var(--kb-text-col-default);
+        }
+
+        .kb-flex-lower {
+            display: flex;
+            align-items: center;
+            justify-content: left;
+            width: 100%;
+            gap: 12px;
+            font-size: 10px;
+            margin-top: 12px;
+        }
+
+        .kb-app-button {
+            display: flex;
+            gap: 6px;
+        }
+
+
+
+    </style>
+    <div class="kb-app-popup-extended-background" id="kb-app-extended-bg-el">
+    </div>
+    <div class="kb-app-popup-wrapper-main">
+        <div class="kb-app-popup-wrapper-inner">
+            <div class="kb-app-popup-first-row">
+                <div class="kb-title-wrapper">
+                    <div class="kb-logo-top-left" ><img src="images/kb-logo-dark-mode.svg"></div>
+                    <div class="kb-app-title">lemmbrett</div>
+                    <div class="kb-small-label">early access</div>
+                </div>
+                <div class="kb-app-popup-button-wrapper">
+                    <a href="https://www.klemmbrett.it/#sign-up" target=”_blank”>
+                        <div class="kb-app-button kb-app-icon-button" id="kb-app-save-btn"> <img src="images/avatar.svg"> Sign-Up
+                        </div>
+                    </a>   
+
+                </div>
+            </div>
+            <div class="kb-app-popup-divider-hori"></div>
+            <div class="kb-app-popup-second-row">
+                <div>
+                    <label class="kb-inline-check">
+                        <input type="checkbox" id="checkEnable" name="enablekb" value="Enable klemmbrett"
+                            style="opacity: 0;">
+                        <label for="checkEnable" id="checkboxLabel" class="kb-inline-check">enable kb companion</label>
+                </div>
+
+                <a href="mailto:hi@lucaspilzen.com?subject=Idea / Feedback for klemmbrett app">
+                    <div class="kb-inline-button" id="kbSignUpMain"> <img src="images/Mail.svg"> give feedback
+                    </div>
+                </a>
+
+            <div class="kb-flex-lower"> 
+
+                <a href="https://www.klemmbrett.it" target="_blank">
+                    <div class="kb-inline-button" id="kbSignUpMain"> website
+                    </div>
+                </a>
+
+                <a href="https://www.lucaspilzen.com/imprint" target="_blank">
+                    <div class="kb-inline-button" id="kbSignUpMain"> imprint
+                    </div>
+                </a>
+
+                <a href="https://www.lucaspilzen.com/privacy" target="_blank">
+                    <div class="kb-inline-button" id="kbSignUpMain"> privacy
+                    </div>
+                </a>
+
+            </div>
+
+
+        </div>
+    </div>
+
+</body>
+
+
+</html>

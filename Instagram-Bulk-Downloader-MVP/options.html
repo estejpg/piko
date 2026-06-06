@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Instagram Bulk Downloader Options</title>
+    <link rel="stylesheet" href="styles/options.css">
+  </head>
+  <body>
+    <main class="options">
+      <h1>Instagram Bulk Downloader</h1>
+      <label class="row">
+        <span>
+          <strong>Show feed button</strong>
+          <small>Display the compact downloader button on the Instagram timeline.</small>
+        </span>
+        <input id="showFeedButton" type="checkbox">
+      </label>
+      <label class="stack">
+        <span>
+          <strong>Filename pattern</strong>
+          <small>Available placeholders: {username}, {takenAt}, {id}, {type}, {index}.</small>
+        </span>
+        <input id="filenamePattern" type="text" spellcheck="false">
+      </label>
+      <section class="stack" aria-labelledby="selectedFolderLabel">
+        <span>
+          <strong id="selectedFolderLabel">Selected folder</strong>
+          <small id="selectedFolder">No folder selected yet.</small>
+        </span>
+      </section>
+      <p id="status" class="status">Ready</p>
+    </main>
+    <script src="src/shared/messages.js"></script>
+    <script src="src/shared/settingsStore.js"></script>
+    <script src="src/options/options.js"></script>
+  </body>
+</html>
