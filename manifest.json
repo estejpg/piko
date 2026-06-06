@@ -1,0 +1,68 @@
+{
+  "manifest_version": 3,
+  "name": "Piko",
+  "short_name": "Piko",
+  "description": "Contextual media downloader for Instagram posts, reels, carousels, profile grids, and YouTube thumbnails.",
+  "version": "0.1.0",
+  "permissions": ["storage"],
+  "host_permissions": [
+    "https://instagram.com/*",
+    "https://*.instagram.com/*",
+    "https://*.cdninstagram.com/*",
+    "https://*.cdninstagram.net/*",
+    "https://*.fbcdn.net/*",
+    "https://www.youtube.com/*",
+    "https://m.youtube.com/*",
+    "https://i.ytimg.com/*"
+  ],
+  "action": {
+    "default_title": "Piko"
+  },
+  "options_page": "options.html",
+  "background": {
+    "service_worker": "src/background/serviceWorker.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://instagram.com/*", "https://*.instagram.com/*"],
+      "js": ["src/content/mainWorldBridge.js"],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
+      "matches": ["https://instagram.com/*", "https://*.instagram.com/*"],
+      "js": [
+        "src/shared/messages.js",
+        "src/shared/settingsStore.js",
+        "src/shared/filename.js",
+        "src/media/mediaResolver.js",
+        "src/downloads/downloader.js",
+        "src/ui/icons.js",
+        "src/ui/ToastHost.js",
+        "src/ui/ProfileSideMenu.js",
+        "src/ui/FeedTopButton.js",
+        "src/ui/TimelinePostActions.js",
+        "src/ui/ProfileHoverButtons.js",
+        "src/ui/ProfileMultiSelect.js",
+        "src/content/instagramContent.js"
+      ],
+      "css": ["styles/content.css"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://www.youtube.com/*", "https://m.youtube.com/*"],
+      "js": [
+        "src/shared/messages.js",
+        "src/shared/settingsStore.js",
+        "src/shared/filename.js",
+        "src/downloads/downloader.js",
+        "src/ui/icons.js",
+        "src/ui/ToastHost.js",
+        "src/ui/YouTubeThumbnailControl.js",
+        "src/content/youtubeContent.js"
+      ],
+      "css": ["styles/content.css"],
+      "run_at": "document_idle"
+    }
+  ]
+}
