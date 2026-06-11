@@ -4,6 +4,12 @@
   "short_name": "Piko",
   "description": "Contextual media downloader for Instagram posts, reels, carousels, profile grids, and YouTube thumbnails.",
   "version": "0.1.0",
+  "icons": {
+    "16": "icons/16-piko-browser-logo.png",
+    "32": "icons/32-piko-browser-logo.png",
+    "48": "icons/48-piko-browser-logo.png",
+    "128": "icons/128-piko-browser-logo.png"
+  },
   "permissions": ["storage"],
   "host_permissions": [
     "https://instagram.com/*",
@@ -16,7 +22,13 @@
     "https://i.ytimg.com/*"
   ],
   "action": {
-    "default_title": "Piko"
+    "default_title": "Piko",
+    "default_icon": {
+      "16": "icons/16-piko-browser-logo.png",
+      "32": "icons/32-piko-browser-logo.png",
+      "48": "icons/48-piko-browser-logo.png",
+      "128": "icons/128-piko-browser-logo.png"
+    }
   },
   "options_page": "options.html",
   "background": {
