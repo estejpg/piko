@@ -121,7 +121,12 @@
     return null;
   }
 
-  function readPlayerResponseFromDom() {
+  function isPlayerResponseForVideo(playerResponse, videoId) {
+    const responseVideoId = playerResponse && playerResponse.videoDetails && playerResponse.videoDetails.videoId;
+    return !videoId || !responseVideoId || responseVideoId === videoId;
+  }
+
+  function readPlayerResponseFromDom(videoId) {
     const candidates = [
       document.querySelector("ytd-watch-flexy"),
       document.querySelector("ytd-player"),
@@ -146,14 +151,14 @@
 
       for (const value of values) {
         const playerResponse = parsePlayerResponse(value);
-        if (playerResponse) return playerResponse;
+        if (playerResponse && isPlayerResponseForVideo(playerResponse, videoId)) return playerResponse;
       }
     }
 
     return null;
   }
 
-  function readPlayerResponseFromScripts() {
+  function readPlayerResponseFromScripts(videoId) {
     const patterns = [
       /(?:var\s+)?ytInitialPlayerResponse\s*=\s*\{/g,
       /window\[['"]ytInitialPlayerResponse['"]\]\s*=\s*\{/g
@@ -170,7 +175,7 @@
           const objectStart = content.indexOf("{", match.index);
           const jsonText = objectStart >= 0 ? extractBalancedJson(content, objectStart) : "";
           const playerResponse = parsePlayerResponse(jsonText);
-          if (playerResponse) return playerResponse;
+          if (playerResponse && isPlayerResponseForVideo(playerResponse, videoId)) return playerResponse;
           match = pattern.exec(content);
         }
       }
@@ -179,18 +184,20 @@
     return null;
   }
 
-  function findPlayerResponse() {
-    return (
+  function findPlayerResponse(videoId) {
+    const candidates = [
       parsePlayerResponse(window.ytInitialPlayerResponse) ||
       parsePlayerResponse(window.ytplayer && window.ytplayer.config) ||
-      readPlayerResponseFromDom() ||
-      readPlayerResponseFromScripts()
-    );
+      null,
+      readPlayerResponseFromDom(videoId),
+      readPlayerResponseFromScripts(videoId)
+    ];
+    return candidates.find((playerResponse) => playerResponse && isPlayerResponseForVideo(playerResponse, videoId)) || null;
   }
 
-  function findCaptionTracks() {
+  function findCaptionTracks(videoId) {
     try {
-      const playerResponse = findPlayerResponse();
+      const playerResponse = findPlayerResponse(videoId);
       const tracks =
         (playerResponse &&
           playerResponse.captions &&
@@ -278,7 +285,7 @@
   }
 
   async function extractTranscript(videoId) {
-    const tracks = findCaptionTracks();
+    const tracks = findCaptionTracks(videoId);
     
     if (!tracks || !tracks.length) {
       throw new Error("No transcript available for this video");
