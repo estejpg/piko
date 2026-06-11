@@ -44,7 +44,7 @@
         transcriptButton.setAttribute("aria-disabled", busy ? "true" : "false");
       },
       setTranscriptAvailable(available) {
-        transcriptButton.style.display = available ? "" : "none";
+        transcriptButton.title = available ? "Download transcript" : "Download transcript if available";
       }
     };
   }
