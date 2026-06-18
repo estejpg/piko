@@ -15,6 +15,22 @@
 
   const selected = new Map();
   const cardControls = new Map();
+  const CARD_ROOT_SELECTOR = [
+    "ytd-rich-item-renderer",
+    "ytd-rich-grid-media",
+    "ytd-video-renderer",
+    "ytd-grid-video-renderer",
+    "ytd-compact-video-renderer",
+    "ytd-playlist-video-renderer",
+    "yt-lockup-view-model"
+  ].join(",");
+  const VIDEO_LINK_SELECTOR = [
+    "a#thumbnail[href*='/watch']",
+    "a#video-title[href*='/watch']",
+    "a[href*='/watch?v=']",
+    "a[href^='/shorts/']",
+    "a[href*='youtube.com/shorts/']"
+  ].join(",");
 
   function getToastHost() {
     if (!toastHost) toastHost = window.IgBulkToastHost.createToastHost();
@@ -48,18 +64,83 @@
     }
   }
 
+  function isChannelListingPath(pathname) {
+    return /^\/@[^/]+(?:\/videos|\/featured)?\/?$/.test(pathname || "");
+  }
+
+  function isSupportedListingRoute() {
+    try {
+      const url = new URL(location.href);
+      return (
+        url.pathname === "/" ||
+        url.pathname === "/feed/subscriptions" ||
+        url.pathname === "/results" ||
+        isChannelListingPath(url.pathname)
+      );
+    } catch (error) {
+      return false;
+    }
+  }
+
   function videoIdFromHref(href) {
     try {
       const url = new URL(href, location.origin);
-      if (url.pathname !== "/watch") return "";
-      return url.searchParams.get("v") || "";
+      if (url.pathname === "/watch") return url.searchParams.get("v") || "";
+      if (url.pathname.startsWith("/shorts/")) return url.pathname.split("/").filter(Boolean)[1] || "";
+      return "";
     } catch (error) {
       return "";
     }
   }
 
   function textFrom(node) {
-    return node ? String(node.textContent || node.title || node.getAttribute("aria-label") || "").trim() : "";
+    if (!node) return "";
+    const values = [
+      node.textContent,
+      node.title,
+      node.getAttribute && node.getAttribute("title"),
+      node.getAttribute && node.getAttribute("aria-label"),
+      node.content,
+      node.getAttribute && node.getAttribute("content")
+    ];
+    for (const value of values) {
+      const text = String(value || "").replace(/\s+/g, " ").trim();
+      if (text) return text;
+    }
+    return "";
+  }
+
+  function cleanChannelName(value) {
+    return String(value || "")
+      .replace(/\s+-\s+YouTube$/i, "")
+      .replace(/^@/, "")
+      .trim();
+  }
+
+  function channelNameFromRoute() {
+    try {
+      const url = new URL(location.href);
+      if (!isChannelListingPath(url.pathname)) return "";
+
+      const pageCandidates = [
+        "ytd-page-header-renderer h1",
+        "ytd-page-header-renderer #channel-name",
+        "ytd-c4-tabbed-header-renderer #channel-name",
+        "#channel-header #channel-name",
+        "#channel-header-container #channel-name",
+        "meta[property='og:title']"
+      ];
+      for (const selector of pageCandidates) {
+        const node = document.querySelector(selector);
+        const value = cleanChannelName(node && (node.content || textFrom(node)));
+        if (value) return value;
+      }
+
+      const handle = url.pathname.split("/").filter(Boolean)[0] || "";
+      return cleanChannelName(handle);
+    } catch (error) {
+      return "";
+    }
   }
 
   function channelName(root) {
@@ -68,13 +149,18 @@
       "ytd-channel-name a",
       ".ytd-channel-name a",
       "#metadata #byline-container a",
-      "#text-container a"
+      "#text-container a",
+      "yt-lockup-metadata-view-model a[href^='/@']",
+      "a[href^='/@'][aria-label]"
     ];
     for (const selector of scopedCandidates) {
       const node = root && root.querySelector && root.querySelector(selector);
-      const value = textFrom(node);
+      const value = cleanChannelName(textFrom(node));
       if (value) return value;
     }
+
+    const routeChannelName = channelNameFromRoute();
+    if (routeChannelName) return routeChannelName;
 
     const pageCandidates = [
       "#owner #channel-name a",
@@ -83,7 +169,7 @@
     ];
     for (const selector of pageCandidates) {
       const node = document.querySelector(selector);
-      const value = node && (node.content || node.textContent || "").trim();
+      const value = cleanChannelName(node && (node.content || node.textContent || ""));
       if (value) return value;
     }
     return "youtube";
@@ -194,13 +280,13 @@
   }
 
   function ensureSelectionDock() {
-    if (selectionDock) return;
-    selectionDock = ui.createSelectionDock({
-      clearSelection,
-      downloadSelected
-    });
-    document.body.appendChild(selectionDock.element);
-    syncSelectionUi();
+    if (!selectionDock) {
+      selectionDock = ui.createSelectionDock({
+        clearSelection,
+        downloadSelected
+      });
+    }
+    if (selectionDock.element && !selectionDock.element.isConnected) document.body.appendChild(selectionDock.element);
   }
 
   function syncSelectionUi() {
@@ -363,52 +449,95 @@
     lastVideoId = "";
   }
 
+  function uniqueElements(elements) {
+    const seen = new Set();
+    const unique = [];
+    elements.forEach((element) => {
+      if (!element || seen.has(element)) return;
+      seen.add(element);
+      unique.push(element);
+    });
+    return unique;
+  }
+
+  function cardRootFromLink(link) {
+    if (!link || !videoIdFromHref(link.href || link.getAttribute("href") || "")) return null;
+    if (link.closest("#ig-bulk-youtube-control, .ig-bulk-youtube-card-controls, .ig-bulk-youtube-selection-dock")) return null;
+    if (link.closest("ytd-ad-slot-renderer, ytd-promoted-video-renderer, ytd-display-ad-renderer")) return null;
+    return link.closest(CARD_ROOT_SELECTOR);
+  }
+
   function cardRoots() {
     if (currentVideoId()) {
       const related = document.querySelector("#related") || document.querySelector("ytd-watch-next-secondary-results-renderer");
       if (!related) return [];
-      return Array.from(related.querySelectorAll("ytd-compact-video-renderer"));
+      return uniqueElements(Array.from(related.querySelectorAll(VIDEO_LINK_SELECTOR)).map(cardRootFromLink));
     }
 
-    if (!isHomeRoute()) return [];
+    if (!isSupportedListingRoute()) return [];
 
-    return Array.from(
-      document.querySelectorAll(
-        [
-          "ytd-rich-item-renderer",
-          "ytd-video-renderer",
-          "ytd-grid-video-renderer"
-        ].join(",")
-      )
+    return uniqueElements(Array.from(document.querySelectorAll(VIDEO_LINK_SELECTOR)).map(cardRootFromLink));
+  }
+
+  function titleFromCard(card, fallbackLink) {
+    const titleCandidates = [
+      "#video-title",
+      "a#video-title",
+      "a#video-title-link",
+      "h3 a[href*='/watch']",
+      "yt-lockup-metadata-view-model a[href*='/watch']",
+      "a[title][href*='/watch']"
+    ];
+    for (const selector of titleCandidates) {
+      const node = card.querySelector(selector);
+      const value = textFrom(node);
+      if (value) return value;
+    }
+    return textFrom(fallbackLink);
+  }
+
+  function previewUrlFromCard(card, videoId) {
+    const image = card.querySelector(
+      [
+        "ytd-thumbnail img[src]",
+        "ytd-thumbnail img[data-thumb]",
+        "yt-thumbnail-view-model img[src]",
+        "img[src*='ytimg.com/vi']",
+        "img[src*='ytimg.com/vi_webp']"
+      ].join(",")
     );
+    const url = image && (image.currentSrc || image.src || image.getAttribute("src") || image.getAttribute("data-thumb"));
+    return url || previewUrl(videoId);
   }
 
   function cardDataFromRoot(card) {
     const link =
       card.querySelector("a#thumbnail[href*='/watch']") ||
+      card.querySelector("ytd-thumbnail a[href*='/watch']") ||
       card.querySelector("a#video-title[href*='/watch']") ||
-      card.querySelector("a[href*='/watch?v=']");
+      card.querySelector("a[href*='/watch?v=']") ||
+      card.querySelector("a[href^='/shorts/']") ||
+      card.querySelector("a[href*='youtube.com/shorts/']");
     const videoId = link ? videoIdFromHref(link.href) : "";
     if (!videoId) return null;
 
-    const titleNode =
-      card.querySelector("#video-title") ||
-      card.querySelector("a#video-title-link") ||
-      card.querySelector("h3 a") ||
-      link;
-
     return {
       channelName: channelName(card),
-      previewUrl: previewUrl(videoId),
-      title: textFrom(titleNode) || videoId,
+      previewUrl: previewUrlFromCard(card, videoId),
+      title: titleFromCard(card, link) || videoId,
       videoId
     };
   }
 
   function thumbnailMountFromCard(card) {
-    const thumbnail = card.querySelector("a#thumbnail[href*='/watch']") || card.querySelector("a[href*='/watch?v=']");
+    const thumbnail =
+      card.querySelector("a#thumbnail[href*='/watch']") ||
+      card.querySelector("ytd-thumbnail a[href*='/watch']") ||
+      card.querySelector("a[href*='/watch?v=']") ||
+      card.querySelector("a[href^='/shorts/']") ||
+      card.querySelector("a[href*='youtube.com/shorts/']");
     if (!thumbnail) return null;
-    return thumbnail.parentElement || thumbnail;
+    return thumbnail.closest("ytd-thumbnail, yt-thumbnail-view-model, .yt-thumbnail-view-model") || thumbnail.parentElement || thumbnail;
   }
 
   function decorateCard(card) {
@@ -456,7 +585,7 @@
   }
 
   function refreshCards() {
-    if (!currentVideoId() && !isHomeRoute()) {
+    if (!currentVideoId() && !isSupportedListingRoute()) {
       destroyCardControls();
       if (!selectionBusy) selected.clear();
       syncSelectionUi();
@@ -484,10 +613,17 @@
   }
 
   function shouldRefreshForNode(node) {
+    const refreshSelector = [
+      CARD_ROOT_SELECTOR,
+      VIDEO_LINK_SELECTOR,
+      "ytd-watch-metadata",
+      "ytd-browse",
+      "ytd-search",
+      "ytd-continuation-item-renderer"
+    ].join(",");
     return (
       node.matches &&
-      (node.matches("ytd-rich-item-renderer, ytd-video-renderer, ytd-grid-video-renderer, ytd-compact-video-renderer, ytd-watch-metadata") ||
-        node.querySelector("ytd-rich-item-renderer, ytd-video-renderer, ytd-grid-video-renderer, ytd-compact-video-renderer, ytd-watch-metadata"))
+      (node.matches(refreshSelector) || node.querySelector(refreshSelector))
     );
   }
 
@@ -503,7 +639,7 @@
     document.addEventListener("yt-page-data-updated", scheduleRefresh);
     window.addEventListener("popstate", scheduleRefresh);
     setInterval(() => {
-      if (currentVideoId() !== lastVideoId || (lastVideoId && control && !control.element.isConnected)) scheduleRefresh();
+      if (currentVideoId() !== lastVideoId || (lastVideoId && control && !control.element.isConnected) || isSupportedListingRoute()) scheduleRefresh();
     }, 1000);
 
     const observer = new MutationObserver((records) => {
