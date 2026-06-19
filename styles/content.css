@@ -373,8 +373,11 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  flex: 0 0 auto;
   gap: 6px;
   min-width: 30px;
+  max-width: max-content;
+  width: auto;
   height: 30px;
   border-color: #000000;
   border-radius: var(--igb-radius-pill);
@@ -384,6 +387,7 @@
   filter: saturate(0.82);
   font-size: 12px;
   font-weight: 760;
+  line-height: 1;
   opacity: 1;
   padding: 0 8px;
   pointer-events: auto;
@@ -396,7 +400,9 @@
   background: #171718 !important;
   box-shadow: 0 0 0 1px #3c3c3c, 0 0 0 2px #000000, 0 3px 4px rgba(0, 0, 0, 0.28) !important;
   color: #ffffff !important;
+  flex: 0 0 auto !important;
   padding: 0 8px !important;
+  width: auto !important;
 }
 
 .ig-bulk-tile-download span {
@@ -406,11 +412,15 @@
 }
 
 .ig-bulk-timeline-download {
+  align-self: center;
+  flex: 0 0 auto !important;
   position: relative;
   right: auto;
   bottom: auto;
   width: auto;
-  height: 28px;
+  min-width: 0;
+  max-width: max-content;
+  height: 26px;
   margin-left: 8px;
   vertical-align: middle;
 }
