@@ -5,7 +5,7 @@
     button.className = "ig-bulk-tile-download";
     button.title = "Download this media";
     button.setAttribute("aria-label", "Download this Instagram media");
-    button.innerHTML = window.IgBulkIcons.icon("download");
+    button.innerHTML = `${window.IgBulkIcons.icon("download")}<span>Save</span>`;
 
     button.addEventListener("click", (event) => {
       event.preventDefault();

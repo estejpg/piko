@@ -33,13 +33,43 @@
     return best || media.parentElement;
   }
 
+  function findActionContainer(article, media) {
+    if (!article) return null;
+    const mediaRect = media ? media.getBoundingClientRect() : null;
+    const candidates = Array.from(article.querySelectorAll("section, footer, [role='group']")).filter((node) => {
+      if (!node || node.querySelector(".ig-bulk-timeline-download")) return false;
+      if (media && node.contains(media)) return false;
+      if (!node.querySelector("button, [role='button'], a[href], svg")) return false;
+      const rect = node.getBoundingClientRect();
+      if (rect.width < 120 || rect.height < 18 || rect.height > 120) return false;
+      return true;
+    });
+
+    if (!candidates.length) return null;
+
+    return candidates
+      .map((node) => {
+        const rect = node.getBoundingClientRect();
+        const afterMedia = mediaRect ? rect.top >= mediaRect.bottom - 12 : false;
+        const distance = mediaRect ? Math.abs(rect.top - mediaRect.bottom) : rect.top;
+        const buttonCount = node.querySelectorAll("button, [role='button']").length;
+        return { afterMedia, buttonCount, distance, node, top: rect.top };
+      })
+      .sort((a, b) => {
+        if (a.afterMedia !== b.afterMedia) return a.afterMedia ? -1 : 1;
+        if (a.buttonCount !== b.buttonCount) return b.buttonCount - a.buttonCount;
+        if (a.distance !== b.distance) return a.distance - b.distance;
+        return a.top - b.top;
+      })[0].node;
+  }
+
   function createButton(article, onDownloadArticle) {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "ig-bulk-tile-download ig-bulk-timeline-download";
     button.title = "Download this post";
     button.setAttribute("aria-label", "Download this Instagram post");
-    button.innerHTML = window.IgBulkIcons.icon("download");
+    button.innerHTML = `${window.IgBulkIcons.icon("download")}<span>Save</span>`;
 
     button.addEventListener("click", (event) => {
       event.preventDefault();
@@ -66,12 +96,15 @@
 
     function injectArticle(article) {
       if (!article) return;
+      if (article.querySelector(".ig-bulk-timeline-download")) return;
       const media = findPrimaryMedia(article);
-      const container = findMediaContainer(article, media);
+      const actionContainer = findActionContainer(article, media);
+      const container = actionContainer || findMediaContainer(article, media);
       if (!container || decorated.has(container) || container.querySelector(".ig-bulk-timeline-download")) return;
 
-      container.classList.add("ig-bulk-tile", "ig-bulk-timeline-media");
+      container.classList.add("ig-bulk-tile", actionContainer ? "ig-bulk-timeline-actions" : "ig-bulk-timeline-media");
       const button = createButton(article, options.onDownloadArticle);
+      button.classList.toggle("ig-bulk-timeline-download--overlay", !actionContainer);
       container.appendChild(button);
       decorated.add(container);
       buttons.add(button);
@@ -86,7 +119,7 @@
       buttons.forEach((button) => button.remove());
       buttons.clear();
       decorated.forEach((container) => {
-        container.classList.remove("ig-bulk-timeline-media");
+        container.classList.remove("ig-bulk-timeline-actions", "ig-bulk-timeline-media");
         if (!container.querySelector(".ig-bulk-tile-download, .ig-bulk-tile-select")) container.classList.remove("ig-bulk-tile");
       });
       decorated.clear();
