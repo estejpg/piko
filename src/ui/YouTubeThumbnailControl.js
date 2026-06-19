@@ -50,16 +50,26 @@
   }
 
   function createCardControls(cardData, actions) {
+    let currentCardData = cardData;
     const root = document.createElement("div");
     root.className = "ig-bulk-youtube-card-controls";
     root.innerHTML = [
       '<button type="button" class="ig-bulk-youtube-card-button" data-action="download" aria-label="Download thumbnail" title="Download thumbnail">',
       window.IgBulkIcons.icon("download"),
+      '<span>Thumbnail</span>',
       '</button>',
       '<button type="button" class="ig-bulk-youtube-card-button" data-action="select" aria-label="Select thumbnail" title="Select thumbnail" aria-pressed="false">',
       window.IgBulkIcons.icon("check"),
       '</button>'
     ].join("");
+
+    function resolvedCardData() {
+      if (actions.resolveCardData) {
+        const nextCardData = actions.resolveCardData(currentCardData);
+        if (nextCardData && nextCardData.videoId) currentCardData = nextCardData;
+      }
+      return currentCardData;
+    }
 
     root.addEventListener("click", (event) => {
       const button = event.target.closest("button[data-action]");
@@ -67,12 +77,19 @@
       event.preventDefault();
       event.stopPropagation();
       const action = button.getAttribute("data-action");
-      if (action === "download") actions.download(cardData, button);
-      if (action === "select") actions.toggleSelect(cardData, button);
+      const nextCardData = resolvedCardData();
+      if (action === "download") actions.download(nextCardData, button);
+      if (action === "select") actions.toggleSelect(nextCardData, button);
     });
 
     return {
       element: root,
+      get cardData() {
+        return resolvedCardData();
+      },
+      setCardData(nextCardData) {
+        if (nextCardData && nextCardData.videoId) currentCardData = nextCardData;
+      },
       setBusy(busy) {
         const button = root.querySelector('[data-action="download"]');
         if (!button) return;
@@ -115,11 +132,15 @@
     const download = root.querySelector('[data-action="download"]');
     const clear = root.querySelector('[data-action="clear"]');
     let busy = false;
+    let previewKey = "";
 
     download.addEventListener("click", () => actions.downloadSelected());
     clear.addEventListener("click", () => actions.clearSelection());
 
     function renderPreviews(items) {
+      const nextPreviewKey = items.map((item) => item.videoId || item.id || item.previewUrl || "").join("|");
+      if (nextPreviewKey === previewKey) return;
+      previewKey = nextPreviewKey;
       previews.textContent = "";
       items.slice(0, 7).forEach((item) => {
         const img = document.createElement("img");

@@ -35,6 +35,7 @@
 #ig-bulk-profile-menu,
 #ig-bulk-feed-button,
 #ig-bulk-youtube-control,
+.ig-bulk-youtube-card-controls,
 .ig-bulk-youtube-selection-dock,
 .ig-bulk-toast-host,
 .ig-bulk-toast,
@@ -43,6 +44,7 @@
 .ig-bulk-tile-select,
 .ig-bulk-youtube-thumbnail-button,
 .ig-bulk-youtube-transcript-button,
+.ig-bulk-youtube-card-button,
 .ig-bulk-selection-bar {
   box-sizing: border-box;
   color: var(--igb-slate);
@@ -56,6 +58,7 @@
 #ig-bulk-profile-menu *,
 #ig-bulk-feed-button *,
 #ig-bulk-youtube-control *,
+.ig-bulk-youtube-card-controls *,
 .ig-bulk-youtube-selection-dock *,
 .ig-bulk-toast-host *,
 .ig-bulk-toast *,
@@ -64,6 +67,7 @@
 .ig-bulk-tile-select *,
 .ig-bulk-youtube-thumbnail-button *,
 .ig-bulk-youtube-transcript-button *,
+.ig-bulk-youtube-card-button *,
 .ig-bulk-selection-bar * {
   box-sizing: border-box;
   font: inherit;
@@ -606,52 +610,62 @@
 }
 
 .ig-bulk-youtube-card {
-  position: relative !important;
+  display: inline-flex !important;
+  align-items: center;
+  min-height: 28px;
+  margin-top: 4px;
 }
 
 .ig-bulk-youtube-card-controls {
-  position: absolute;
-  right: 8px;
-  bottom: 8px;
-  z-index: 20;
+  position: relative;
+  z-index: 12;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  opacity: 0;
-  pointer-events: none;
-  transform: translateY(5px) scale(0.96);
-  transition: opacity var(--igb-med) var(--igb-enter), transform var(--igb-med) var(--igb-enter);
-}
-
-.ig-bulk-youtube-card:hover .ig-bulk-youtube-card-controls,
-.ig-bulk-youtube-card:focus-within .ig-bulk-youtube-card-controls,
-.ig-bulk-youtube-card-controls:focus-within {
+  gap: 5px;
+  margin-left: 10px;
+  vertical-align: middle;
   opacity: 1;
   pointer-events: auto;
-  transform: translateY(0) scale(1);
+  transform: translateZ(0);
 }
 
 .ig-bulk-youtube-card-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-color: rgba(255, 255, 255, 0.72);
-  border-radius: 50%;
-  background: var(--igb-surface-soft);
-  color: var(--igb-rich-violet);
+  gap: 6px;
+  min-width: 28px;
+  height: 28px;
+  border-color: #000;
+  border-radius: var(--igb-radius-pill);
+  background: #171718;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 760;
+  line-height: 1;
+  padding: 0 9px;
+  box-shadow: 0 0 0 1px #3c3c3c, 0 0 0 2px #000000, 0 3px 4px rgba(0, 0, 0, 0.28);
+  filter: saturate(0.82);
+}
+
+.ig-bulk-youtube-card-button[data-action="select"] {
+  width: 28px;
   padding: 0;
-  box-shadow: var(--igb-shadow-chip);
 }
 
 .ig-bulk-youtube-card-button:hover,
-.ig-bulk-youtube-card-button:focus-visible,
-.ig-bulk-youtube-card-button.is-selected {
-  background: var(--igb-action-violet);
-  border-color: var(--igb-action-violet);
-  color: var(--igb-canvas);
+.ig-bulk-youtube-card-button:focus-visible {
+  background: #5513e0;
+  color: #ffffff;
+  filter: saturate(1);
   outline: none;
+  transform: translateY(-1px);
+}
+
+.ig-bulk-youtube-card-button.is-selected {
+  background: #5513e0;
+  color: #ffffff;
+  filter: saturate(1);
 }
 
 .ig-bulk-youtube-card-button.is-loading {
@@ -661,7 +675,7 @@
 
 .ig-bulk-youtube-card--selected ytd-thumbnail,
 .ig-bulk-youtube-card--selected #thumbnail {
-  outline: 2px solid rgba(89, 46, 255, 0.72);
+  outline: 2px solid rgba(85, 19, 224, 0.72);
   outline-offset: -2px;
 }
 
