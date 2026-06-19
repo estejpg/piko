@@ -772,8 +772,8 @@
           if (node.id && String(node.id).startsWith("ig-bulk")) continue;
           if (
             node.matches &&
-            (node.matches('a[href*="/p/"], a[href*="/reel/"], a[href*="/tv/"], article, [role="dialog"], [aria-modal="true"]') ||
-              node.querySelector('a[href*="/p/"], a[href*="/reel/"], a[href*="/tv/"], article, [role="dialog"], [aria-modal="true"]'))
+            (node.matches('a[href*="/p/"], a[href*="/reel/"], a[href*="/tv/"], article, video, [role="dialog"], [aria-modal="true"]') ||
+              node.querySelector('a[href*="/p/"], a[href*="/reel/"], a[href*="/tv/"], article, video, [role="dialog"], [aria-modal="true"]'))
           ) {
             scheduleContextualRefresh();
             return;
@@ -784,6 +784,7 @@
     observer.observe(document.body || document.documentElement, { childList: true, subtree: true });
 
     window.addEventListener("resize", scheduleProfileMenuPosition);
+    window.addEventListener("scroll", scheduleContextualRefresh, { passive: true });
     window.addEventListener("popstate", scheduleRouteRefresh);
     window.addEventListener("locationchange", scheduleRouteRefresh);
 

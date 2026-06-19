@@ -33,6 +33,55 @@
     return best || media.parentElement;
   }
 
+  function isWithinSupportedSurface(element) {
+    return Boolean(element && element.closest("main, [role='dialog'], [aria-modal='true']"));
+  }
+
+  function isReasonableMediaRoot(root, media) {
+    if (!root || !media || root === document.body || root === document.documentElement) return false;
+    if (!isWithinSupportedSurface(root)) return false;
+    if (!root.contains(media)) return false;
+    if (!root.querySelector("button, [role='button']")) return false;
+
+    const rect = root.getBoundingClientRect();
+    const mediaRect = media.getBoundingClientRect();
+    const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
+    const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+    if (rect.width < 180 || rect.height < 180) return false;
+    if (rect.width > Math.min(viewportWidth || rect.width, Math.max(mediaRect.width + 360, 420))) return false;
+    if (rect.height > Math.max((viewportHeight || rect.height) * 1.35, mediaRect.height + 280)) return false;
+
+    return true;
+  }
+
+  function findMediaRoot(seed) {
+    if (!seed || !isWithinSupportedSurface(seed)) return null;
+    const article = seed.closest && seed.closest("article");
+    if (article && isWithinSupportedSurface(article)) return article;
+
+    const media = seed.matches && seed.matches("img, video") ? seed : seed.querySelector && seed.querySelector("video, img");
+    if (!media) return null;
+
+    let cursor = seed.matches && seed.matches("a[href*='/reel/']") ? seed : media.parentElement;
+    while (cursor && cursor !== document.body && cursor !== document.documentElement) {
+      if (cursor.matches && cursor.matches("main, [role='dialog'], [aria-modal='true']")) break;
+      if (isReasonableMediaRoot(cursor, media)) return cursor;
+      cursor = cursor.parentElement;
+    }
+
+    return null;
+  }
+
+  function collectTimelineRoots() {
+    const roots = new Set();
+    document.querySelectorAll("main article, [role='dialog'] article, [aria-modal='true'] article").forEach((article) => roots.add(article));
+    document.querySelectorAll("main video, main a[href*='/reel/'], [role='dialog'] video, [role='dialog'] a[href*='/reel/'], [aria-modal='true'] video, [aria-modal='true'] a[href*='/reel/']").forEach((node) => {
+      const root = findMediaRoot(node);
+      if (root) roots.add(root);
+    });
+    return Array.from(roots);
+  }
+
   function findActionContainer(article, media) {
     if (!article) return null;
     const mediaRect = media ? media.getBoundingClientRect() : null;
@@ -41,7 +90,9 @@
       if (media && node.contains(media)) return false;
       if (!node.querySelector("button, [role='button'], a[href], svg")) return false;
       const rect = node.getBoundingClientRect();
-      if (rect.width < 120 || rect.height < 18 || rect.height > 120) return false;
+      const compactRow = rect.width >= 120 && rect.height >= 18 && rect.height <= 120;
+      const compactRail = mediaRect && rect.width >= 36 && rect.width <= 180 && rect.height >= 80 && rect.height <= Math.max(mediaRect.height + 120, 240);
+      if (!compactRow && !compactRail) return false;
       return true;
     });
 
@@ -112,7 +163,7 @@
 
     function refresh() {
       pruneDisconnected();
-      document.querySelectorAll("main article, [role='dialog'] article, [aria-modal='true'] article").forEach(injectArticle);
+      collectTimelineRoots().forEach(injectArticle);
     }
 
     function destroy() {
