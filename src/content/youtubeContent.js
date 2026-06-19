@@ -10,6 +10,7 @@
   let selectionDock = null;
   let toastHost = null;
   let lastVideoId = "";
+  let lastRouteKey = "";
   let refreshTimer = null;
   let selectionBusy = false;
 
@@ -82,6 +83,19 @@
     }
   }
 
+  function currentRouteKey() {
+    const videoId = currentVideoId();
+    if (videoId) return `watch:${videoId}`;
+    try {
+      const url = new URL(location.href);
+      if (!isSupportedListingRoute()) return "";
+      if (url.pathname === "/results") return `${url.pathname}?${url.searchParams.toString()}`;
+      return url.pathname;
+    } catch (error) {
+      return "";
+    }
+  }
+
   function videoIdFromHref(href) {
     try {
       const url = new URL(href, location.origin);
@@ -122,6 +136,9 @@
       const url = new URL(location.href);
       if (!isChannelListingPath(url.pathname)) return "";
 
+      const handle = url.pathname.split("/").filter(Boolean)[0] || "";
+      if (handle) return cleanChannelName(handle);
+
       const pageCandidates = [
         "ytd-page-header-renderer h1",
         "ytd-page-header-renderer #channel-name",
@@ -135,12 +152,10 @@
         const value = cleanChannelName(node && (node.content || textFrom(node)));
         if (value) return value;
       }
-
-      const handle = url.pathname.split("/").filter(Boolean)[0] || "";
-      return cleanChannelName(handle);
     } catch (error) {
       return "";
     }
+    return "";
   }
 
   function channelName(root) {
@@ -467,6 +482,10 @@
     return link.closest(CARD_ROOT_SELECTOR);
   }
 
+  function inCard(element, card) {
+    return Boolean(element && card && element !== card && card.contains(element));
+  }
+
   function cardRoots() {
     if (currentVideoId()) {
       const related = document.querySelector("#related") || document.querySelector("ytd-watch-next-secondary-results-renderer");
@@ -510,6 +529,19 @@
     return url || previewUrl(videoId);
   }
 
+  function metadataRows(card) {
+    return Array.from(
+      card.querySelectorAll(
+        [
+          "yt-content-metadata-view-model .ytContentMetadataViewModelMetadataRow",
+          "yt-content-metadata-view-model .yt-content-metadata-view-model__metadata-row",
+          "#metadata-line",
+          "#meta #metadata-line"
+        ].join(",")
+      )
+    );
+  }
+
   function cardDataFromRoot(card) {
     const link =
       card.querySelector("a#thumbnail[href*='/watch']") ||
@@ -529,24 +561,45 @@
     };
   }
 
-  function thumbnailMountFromCard(card) {
+  function cardControlsMountFromCard(card) {
+    const rows = metadataRows(card);
+    if (rows.length) return rows[rows.length > 1 ? 1 : 0];
+
+    const fallbackSelectors = [
+      "yt-lockup-metadata-view-model",
+      "#details #meta",
+      "#meta",
+      "#details",
+      "#dismissible"
+    ];
+    for (const selector of fallbackSelectors) {
+      const node = card.querySelector(selector);
+      if (inCard(node, card)) return node;
+    }
+
     const thumbnail =
       card.querySelector("a#thumbnail[href*='/watch']") ||
       card.querySelector("ytd-thumbnail a[href*='/watch']") ||
       card.querySelector("a[href*='/watch?v=']") ||
       card.querySelector("a[href^='/shorts/']") ||
       card.querySelector("a[href*='youtube.com/shorts/']");
-    if (!thumbnail) return null;
-    return thumbnail.closest("ytd-thumbnail, yt-thumbnail-view-model, .yt-thumbnail-view-model") || thumbnail.parentElement || thumbnail;
+    return thumbnail && thumbnail.parentElement ? thumbnail.parentElement : null;
   }
 
   function decorateCard(card) {
     const cardData = cardDataFromRoot(card);
-    const mount = thumbnailMountFromCard(card);
+    const mount = cardControlsMountFromCard(card);
     if (!cardData || !mount) return;
 
     const existing = cardControls.get(card);
     if (existing && existing.cardData && existing.cardData.videoId === cardData.videoId) {
+      if (existing.setCardData) existing.setCardData(cardData);
+      if (existing.element.parentElement !== mount) {
+        mount.querySelectorAll(".ig-bulk-youtube-card-controls").forEach((node) => {
+          if (node !== existing.element) node.remove();
+        });
+        mount.appendChild(existing.element);
+      }
       existing.setSelected(selected.has(cardData.videoId));
       card.classList.toggle("ig-bulk-youtube-card--selected", selected.has(cardData.videoId));
       return;
@@ -555,12 +608,13 @@
     if (existing) existing.element.remove();
     mount.querySelectorAll(".ig-bulk-youtube-card-controls").forEach((node) => node.remove());
     mount.classList.add("ig-bulk-youtube-card");
+    card.classList.add("ig-bulk-youtube-card-root");
 
     const controlApi = ui.createCardControls(cardData, {
       download: (data, button) => downloadCardThumbnail(data, button),
+      resolveCardData: () => cardDataFromRoot(card),
       toggleSelect
     });
-    controlApi.cardData = cardData;
     mount.appendChild(controlApi.element);
     controlApi.setSelected(selected.has(cardData.videoId));
     card.classList.toggle("ig-bulk-youtube-card--selected", selected.has(cardData.videoId));
@@ -578,6 +632,7 @@
   function destroyCardControls() {
     cardControls.forEach((controlApi, card) => {
       controlApi.element.remove();
+      card.classList.remove("ig-bulk-youtube-card-root");
       card.classList.remove("ig-bulk-youtube-card--selected");
     });
     document.querySelectorAll(".ig-bulk-youtube-card").forEach((node) => node.classList.remove("ig-bulk-youtube-card"));
@@ -585,6 +640,14 @@
   }
 
   function refreshCards() {
+    const routeKey = currentRouteKey();
+    const routeChanged = routeKey !== lastRouteKey;
+    if (routeChanged) {
+      if (!selectionBusy) selected.clear();
+      destroyCardControls();
+      lastRouteKey = routeKey;
+    }
+
     if (!currentVideoId() && !isSupportedListingRoute()) {
       destroyCardControls();
       if (!selectionBusy) selected.clear();
@@ -639,7 +702,13 @@
     document.addEventListener("yt-page-data-updated", scheduleRefresh);
     window.addEventListener("popstate", scheduleRefresh);
     setInterval(() => {
-      if (currentVideoId() !== lastVideoId || (lastVideoId && control && !control.element.isConnected) || isSupportedListingRoute()) scheduleRefresh();
+      let missingConnectedCardControl = false;
+      cardControls.forEach((controlApi, card) => {
+        if (!card.isConnected || !controlApi.element.isConnected) missingConnectedCardControl = true;
+      });
+      if (currentRouteKey() !== lastRouteKey || currentVideoId() !== lastVideoId || (lastVideoId && control && !control.element.isConnected) || missingConnectedCardControl) {
+        scheduleRefresh();
+      }
     }, 1000);
 
     const observer = new MutationObserver((records) => {
