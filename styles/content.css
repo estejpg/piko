@@ -353,9 +353,8 @@
   isolation: isolate;
 }
 
-.ig-bulk-timeline-download {
-  right: 12px;
-  bottom: 12px;
+.ig-bulk-timeline-actions {
+  min-height: 30px;
 }
 
 .ig-bulk-tile {
@@ -374,34 +373,78 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 34px;
-  height: 34px;
-  border-color: rgba(255, 255, 255, 0.72);
-  border-radius: 50%;
-  background: var(--igb-surface-soft);
-  color: var(--igb-rich-violet);
-  opacity: 0;
-  padding: 0;
-  pointer-events: none;
-  transform: translateY(5px) scale(0.94);
+  gap: 6px;
+  min-width: 30px;
+  height: 30px;
+  border-color: #000000;
+  border-radius: var(--igb-radius-pill);
+  background: #171718;
+  box-shadow: 0 0 0 1px #3c3c3c, 0 0 0 2px #000000, 0 3px 4px rgba(0, 0, 0, 0.28);
+  color: #ffffff;
+  filter: saturate(0.82);
+  font-size: 12px;
+  font-weight: 760;
+  opacity: 1;
+  padding: 0 8px;
+  pointer-events: auto;
+  transform: translateZ(0);
 }
 
-.ig-bulk-tile:hover .ig-bulk-tile-download,
-.ig-bulk-tile:focus-within .ig-bulk-tile-download,
-.ig-bulk-tile-download:focus-visible,
-.ig-bulk-tile-download.is-loading {
-  box-shadow: var(--igb-shadow-chip);
-  opacity: 1;
-  pointer-events: auto;
-  transform: translateY(0) scale(1);
+.ig-bulk-tile > .ig-bulk-tile-download {
+  border: 1px solid #000000 !important;
+  border-radius: var(--igb-radius-pill) !important;
+  background: #171718 !important;
+  box-shadow: 0 0 0 1px #3c3c3c, 0 0 0 2px #000000, 0 3px 4px rgba(0, 0, 0, 0.28) !important;
+  color: #ffffff !important;
+  padding: 0 8px !important;
+}
+
+.ig-bulk-tile-download span {
+  display: none;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.ig-bulk-timeline-download {
+  position: relative;
+  right: auto;
+  bottom: auto;
+  width: auto;
+  height: 28px;
+  margin-left: 8px;
+  vertical-align: middle;
+}
+
+.ig-bulk-timeline-download span {
+  display: inline;
+}
+
+.ig-bulk-timeline-download--overlay {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  margin-left: 0;
+}
+
+.ig-bulk-timeline-download--overlay span {
+  display: none;
 }
 
 .ig-bulk-tile-download:hover,
 .ig-bulk-tile-download:focus-visible {
-  background: var(--igb-action-violet);
-  border-color: var(--igb-action-violet);
-  color: var(--igb-canvas);
+  background: #5513e0;
+  border-color: #000000;
+  color: #ffffff;
+  filter: saturate(1);
   outline: none;
+  transform: translateY(-1px);
+}
+
+.ig-bulk-tile > .ig-bulk-tile-download:hover,
+.ig-bulk-tile > .ig-bulk-tile-download:focus-visible {
+  background: #5513e0 !important;
+  border-color: #000000 !important;
+  color: #ffffff !important;
 }
 
 .ig-bulk-tile-select {
@@ -411,16 +454,27 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-color: rgba(255, 255, 255, 0.72);
-  border-radius: 50%;
-  background: var(--igb-surface-soft);
-  color: var(--igb-rich-violet);
-  opacity: 0;
+  width: 28px;
+  height: 28px;
+  border-color: #000000;
+  border-radius: var(--igb-radius-pill);
+  background: #171718;
+  box-shadow: 0 0 0 1px #3c3c3c, 0 0 0 2px #000000, 0 3px 4px rgba(0, 0, 0, 0.28);
+  color: #ffffff;
+  filter: saturate(0.82);
+  opacity: 1;
   padding: 0;
-  pointer-events: none;
-  transform: translateY(-5px) scale(0.94);
+  pointer-events: auto;
+  transform: translateZ(0);
+}
+
+.ig-bulk-tile > .ig-bulk-tile-select {
+  border: 1px solid #000000 !important;
+  border-radius: var(--igb-radius-pill) !important;
+  background: #171718 !important;
+  box-shadow: 0 0 0 1px #3c3c3c, 0 0 0 2px #000000, 0 3px 4px rgba(0, 0, 0, 0.28) !important;
+  color: #ffffff !important;
+  padding: 0 !important;
 }
 
 .ig-bulk-tile-select span {
@@ -431,23 +485,23 @@
   border-radius: 50%;
 }
 
-.ig-bulk-tile:hover .ig-bulk-tile-select,
-.ig-bulk-tile:focus-within .ig-bulk-tile-select,
-.ig-bulk-tile--selected .ig-bulk-tile-select,
-.ig-bulk-tile-select:focus-visible {
-  box-shadow: var(--igb-shadow-chip);
-  opacity: 1;
-  pointer-events: auto;
-  transform: translateY(0) scale(1);
-}
-
 .ig-bulk-tile-select.is-selected,
 .ig-bulk-tile-select:hover,
 .ig-bulk-tile-select:focus-visible {
-  background: var(--igb-action-violet);
-  border-color: var(--igb-action-violet);
-  color: var(--igb-canvas);
+  background: #5513e0;
+  border-color: #000000;
+  color: #ffffff;
+  filter: saturate(1);
   outline: none;
+  transform: translateY(-1px);
+}
+
+.ig-bulk-tile > .ig-bulk-tile-select.is-selected,
+.ig-bulk-tile > .ig-bulk-tile-select:hover,
+.ig-bulk-tile > .ig-bulk-tile-select:focus-visible {
+  background: #5513e0 !important;
+  border-color: #000000 !important;
+  color: #ffffff !important;
 }
 
 .ig-bulk-tile-select.is-selected span {
