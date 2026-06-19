@@ -540,6 +540,8 @@
         ].join(",")
       )
     );
+    const url = image && (image.currentSrc || image.src || image.getAttribute("src") || image.getAttribute("data-thumb"));
+    return url || previewUrl(videoId);
   }
 
   function cardDataFromRoot(card) {
