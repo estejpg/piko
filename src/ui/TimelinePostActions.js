@@ -56,11 +56,13 @@
 
   function findMediaRoot(seed) {
     if (!seed || !isWithinSupportedSurface(seed)) return null;
+    if (seed.matches && seed.matches("a[href*='/p/'], a[href*='/reel/'], a[href*='/tv/']") && seed.querySelector("img, video")) return null;
     const article = seed.closest && seed.closest("article");
     if (article && isWithinSupportedSurface(article)) return article;
 
     const media = seed.matches && seed.matches("img, video") ? seed : seed.querySelector && seed.querySelector("video, img");
     if (!media) return null;
+    if (media.closest("a[href*='/p/'], a[href*='/reel/'], a[href*='/tv/']")) return null;
 
     let cursor = seed.matches && seed.matches("a[href*='/reel/']") ? seed : media.parentElement;
     while (cursor && cursor !== document.body && cursor !== document.documentElement) {
