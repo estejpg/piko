@@ -50,12 +50,16 @@
     return currentRoute.type === "profile" || currentRoute.type === "profileReels";
   }
 
+  function supportsGridTileActions(currentRoute) {
+    return isProfileRoute(currentRoute) || currentRoute.type === "explore";
+  }
+
   function isFeedRoute(currentRoute) {
     return currentRoute.type === "feed";
   }
 
   function supportsPostActions(currentRoute) {
-    return currentRoute.type === "feed" || currentRoute.type === "post";
+    return currentRoute.type === "feed" || currentRoute.type === "post" || currentRoute.type === "explore";
   }
 
   function requestBridge(kind, payload) {
@@ -160,7 +164,7 @@
       timelineActions = null;
     }
 
-    if (profileHoverButtons && !isProfileRoute(route)) {
+    if (profileHoverButtons && !supportsGridTileActions(route)) {
       profileHoverButtons.destroy();
       profileHoverButtons = null;
     }
@@ -206,7 +210,7 @@
       });
     }
 
-    if (isProfileRoute(route) && !profileHoverButtons) {
+    if (supportsGridTileActions(route) && !profileHoverButtons) {
       profileHoverButtons = window.IgBulkProfileHoverButtons.createProfileHoverButtons({
         onDownloadTile: (anchor, shortcode, button) => downloadProfileTile(anchor, shortcode, button)
       });
@@ -225,7 +229,7 @@
 
   function refreshContextualActions() {
     if (timelineActions && supportsPostActions(route)) timelineActions.refresh();
-    if (profileHoverButtons && isProfileRoute(route)) profileHoverButtons.refresh();
+    if (profileHoverButtons && supportsGridTileActions(route)) profileHoverButtons.refresh();
     if (profileMultiSelect && isProfileRoute(route)) profileMultiSelect.refresh();
   }
 

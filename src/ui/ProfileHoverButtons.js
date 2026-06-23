@@ -22,6 +22,7 @@
 
     function shouldDecorate(anchor) {
       if (!anchor || anchor.querySelector(".ig-bulk-tile-download")) return false;
+      if (anchor.closest('[role="dialog"], [aria-modal="true"]')) return false;
       if (!window.IgBulkMediaResolver.shortcodeFromUrl(anchor.href)) return false;
       return Boolean(anchor.querySelector("img, video"));
     }
