@@ -54,6 +54,16 @@
     return isProfileRoute(currentRoute) || currentRoute.type === "explore";
   }
 
+  function supportsGridMultiSelect(currentRoute) {
+    return supportsGridTileActions(currentRoute);
+  }
+
+  function gridMultiSelectKey(currentRoute) {
+    if (currentRoute.type === "explore") return "explore";
+    if (isProfileRoute(currentRoute)) return currentRoute.username || currentRoute.type;
+    return "";
+  }
+
   function isFeedRoute(currentRoute) {
     return currentRoute.type === "feed";
   }
@@ -169,13 +179,15 @@
       profileHoverButtons = null;
     }
 
-    if (profileMultiSelect && !isProfileRoute(route)) {
+    const nextMultiSelectKey = gridMultiSelectKey(route);
+
+    if (profileMultiSelect && !supportsGridMultiSelect(route)) {
       profileMultiSelect.destroy();
       profileMultiSelect = null;
       profileMultiSelectKey = "";
     }
 
-    if (profileMultiSelect && isProfileRoute(route) && profileMultiSelectKey !== route.username) {
+    if (profileMultiSelect && supportsGridMultiSelect(route) && profileMultiSelectKey !== nextMultiSelectKey) {
       profileMultiSelect.destroy();
       profileMultiSelect = null;
       profileMultiSelectKey = "";
@@ -216,12 +228,12 @@
       });
     }
 
-    if (isProfileRoute(route) && !profileMultiSelect) {
+    if (supportsGridMultiSelect(route) && !profileMultiSelect) {
       profileMultiSelect = window.IgBulkProfileMultiSelect.createProfileMultiSelect({
         isThumbnailMode: () => thumbnailMode,
         onDownloadSelected: (shortcodes, controls) => downloadSelectedProfileMedia(shortcodes, controls)
       });
-      profileMultiSelectKey = route.username;
+      profileMultiSelectKey = nextMultiSelectKey;
     }
 
     refreshContextualActions();
@@ -230,7 +242,7 @@
   function refreshContextualActions() {
     if (timelineActions && supportsPostActions(route)) timelineActions.refresh();
     if (profileHoverButtons && supportsGridTileActions(route)) profileHoverButtons.refresh();
-    if (profileMultiSelect && isProfileRoute(route)) profileMultiSelect.refresh();
+    if (profileMultiSelect && supportsGridMultiSelect(route)) profileMultiSelect.refresh();
   }
 
   function scheduleContextualRefresh() {

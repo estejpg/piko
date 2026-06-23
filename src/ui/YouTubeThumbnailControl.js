@@ -6,7 +6,7 @@
     root.innerHTML = [
       '<button type="button" class="ig-bulk-youtube-thumbnail-button" data-action="thumbnail" aria-label="Download YouTube thumbnail" title="Download YouTube thumbnail">',
       window.IgBulkIcons.icon("thumbnail"),
-      '<span>Thumbnail</span>',
+      '<span>Save</span>',
       '</button>',
       '<button type="button" class="ig-bulk-youtube-transcript-button" data-action="transcript" aria-label="Download transcript" title="Download transcript">',
       window.IgBulkIcons.icon("download"),
@@ -56,10 +56,10 @@
     root.innerHTML = [
       '<button type="button" class="ig-bulk-youtube-card-button" data-action="download" aria-label="Download thumbnail" title="Download thumbnail">',
       window.IgBulkIcons.icon("download"),
-      '<span>Thumbnail</span>',
+      '<span>Save</span>',
       '</button>',
       '<button type="button" class="ig-bulk-youtube-card-button" data-action="select" aria-label="Select thumbnail" title="Select thumbnail" aria-pressed="false">',
-      window.IgBulkIcons.icon("check"),
+      '<span aria-hidden="true"></span>',
       '</button>'
     ].join("");
 
@@ -104,6 +104,7 @@
         button.setAttribute("aria-pressed", selected ? "true" : "false");
         button.title = selected ? "Remove thumbnail from selection" : "Select thumbnail";
         button.setAttribute("aria-label", selected ? "Remove thumbnail from selection" : "Select thumbnail");
+        button.innerHTML = selected ? window.IgBulkIcons.icon("check") : '<span aria-hidden="true"></span>';
       }
     };
   }

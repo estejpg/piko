@@ -717,6 +717,13 @@
   padding: 0;
 }
 
+.ig-bulk-youtube-card-button[data-action="select"] span {
+  width: 10px;
+  height: 10px;
+  border: 1.5px solid currentColor;
+  border-radius: 999px;
+}
+
 .ig-bulk-youtube-card-button:hover,
 .ig-bulk-youtube-card-button:focus-visible {
   background: #5513e0;
