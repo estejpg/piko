@@ -134,6 +134,37 @@
     return button;
   }
 
+  function directChildFor(container, node) {
+    let cursor = node;
+    while (cursor && cursor.parentElement && cursor.parentElement !== container) {
+      cursor = cursor.parentElement;
+    }
+    return cursor && cursor.parentElement === container ? cursor : null;
+  }
+
+  function findTrailingActionReference(container) {
+    const controls = Array.from(container.querySelectorAll("button, [role='button']")).filter((node) => {
+      return !node.closest(".ig-bulk-timeline-download");
+    });
+    const children = controls
+      .map((node) => directChildFor(container, node))
+      .filter(Boolean)
+      .filter((child, index, list) => list.indexOf(child) === index);
+
+    return controls.length >= 4 && children.length >= 2 ? children[children.length - 1] : null;
+  }
+
+  function mountButton(container, button, actionContainer) {
+    if (!actionContainer) {
+      container.appendChild(button);
+      return;
+    }
+
+    const reference = findTrailingActionReference(container);
+    if (reference) container.insertBefore(button, reference);
+    else container.appendChild(button);
+  }
+
   function createTimelinePostActions(options) {
     const decorated = new Set();
     const buttons = new Set();
@@ -158,7 +189,7 @@
       container.classList.add("ig-bulk-tile", actionContainer ? "ig-bulk-timeline-actions" : "ig-bulk-timeline-media");
       const button = createButton(article, options.onDownloadArticle);
       button.classList.toggle("ig-bulk-timeline-download--overlay", !actionContainer);
-      container.appendChild(button);
+      mountButton(container, button, actionContainer);
       decorated.add(container);
       buttons.add(button);
     }

@@ -122,6 +122,7 @@
 
     function shouldDecorate(anchor) {
       if (!anchor || anchor.querySelector(".ig-bulk-tile-select")) return false;
+      if (anchor.closest('[role="dialog"], [aria-modal="true"]')) return false;
       if (!shortcodeFromAnchor(anchor)) return false;
       return Boolean(anchor.querySelector("img, video"));
     }
