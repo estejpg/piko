@@ -353,10 +353,6 @@
   isolation: isolate;
 }
 
-.ig-bulk-timeline-actions {
-  min-height: 30px;
-}
-
 .ig-bulk-tile {
   position: relative !important;
 }
@@ -409,35 +405,6 @@
   display: none;
   line-height: 1;
   white-space: nowrap;
-}
-
-.ig-bulk-timeline-download {
-  align-self: center;
-  flex: 0 0 auto !important;
-  position: relative;
-  right: auto;
-  bottom: auto;
-  width: auto;
-  min-width: 0;
-  max-width: max-content;
-  height: 26px;
-  margin-left: 8px;
-  vertical-align: middle;
-}
-
-.ig-bulk-timeline-download span {
-  display: inline;
-}
-
-.ig-bulk-timeline-download--overlay {
-  position: absolute;
-  right: 10px;
-  bottom: 10px;
-  margin-left: 0;
-}
-
-.ig-bulk-timeline-download--overlay span {
-  display: none;
 }
 
 .ig-bulk-tile-download:hover,

@@ -25,8 +25,9 @@
     while (cursor && cursor !== article && cursor.parentElement) {
       const rect = cursor.getBoundingClientRect();
       const containsMedia = rect.width >= mediaRect.width * 0.92 && rect.height >= mediaRect.height * 0.92;
-      const notTooLarge = rect.height <= Math.max(mediaRect.height * 1.45, mediaRect.height + 160);
-      if (containsMedia && notTooLarge) best = cursor;
+      const hugsMediaVertically = rect.top >= mediaRect.top - 36 && rect.bottom <= mediaRect.bottom + 36;
+      const notTooLarge = rect.height <= Math.max(mediaRect.height * 1.12, mediaRect.height + 48);
+      if (containsMedia && hugsMediaVertically && notTooLarge) best = cursor;
       cursor = cursor.parentElement;
     }
 
@@ -84,38 +85,6 @@
     return Array.from(roots);
   }
 
-  function findActionContainer(article, media) {
-    if (!article) return null;
-    const mediaRect = media ? media.getBoundingClientRect() : null;
-    const candidates = Array.from(article.querySelectorAll("section, footer, [role='group']")).filter((node) => {
-      if (!node || node.querySelector(".ig-bulk-timeline-download")) return false;
-      if (media && node.contains(media)) return false;
-      if (!node.querySelector("button, [role='button'], a[href], svg")) return false;
-      const rect = node.getBoundingClientRect();
-      const compactRow = rect.width >= 120 && rect.height >= 18 && rect.height <= 120;
-      const compactRail = mediaRect && rect.width >= 36 && rect.width <= 180 && rect.height >= 80 && rect.height <= Math.max(mediaRect.height + 120, 240);
-      if (!compactRow && !compactRail) return false;
-      return true;
-    });
-
-    if (!candidates.length) return null;
-
-    return candidates
-      .map((node) => {
-        const rect = node.getBoundingClientRect();
-        const afterMedia = mediaRect ? rect.top >= mediaRect.bottom - 12 : false;
-        const distance = mediaRect ? Math.abs(rect.top - mediaRect.bottom) : rect.top;
-        const buttonCount = node.querySelectorAll("button, [role='button']").length;
-        return { afterMedia, buttonCount, distance, node, top: rect.top };
-      })
-      .sort((a, b) => {
-        if (a.afterMedia !== b.afterMedia) return a.afterMedia ? -1 : 1;
-        if (a.buttonCount !== b.buttonCount) return b.buttonCount - a.buttonCount;
-        if (a.distance !== b.distance) return a.distance - b.distance;
-        return a.top - b.top;
-      })[0].node;
-  }
-
   function createButton(article, onDownloadArticle) {
     const button = document.createElement("button");
     button.type = "button";
@@ -132,37 +101,6 @@
     });
 
     return button;
-  }
-
-  function directChildFor(container, node) {
-    let cursor = node;
-    while (cursor && cursor.parentElement && cursor.parentElement !== container) {
-      cursor = cursor.parentElement;
-    }
-    return cursor && cursor.parentElement === container ? cursor : null;
-  }
-
-  function findTrailingActionReference(container) {
-    const controls = Array.from(container.querySelectorAll("button, [role='button']")).filter((node) => {
-      return !node.closest(".ig-bulk-timeline-download");
-    });
-    const children = controls
-      .map((node) => directChildFor(container, node))
-      .filter(Boolean)
-      .filter((child, index, list) => list.indexOf(child) === index);
-
-    return controls.length >= 4 && children.length >= 2 ? children[children.length - 1] : null;
-  }
-
-  function mountButton(container, button, actionContainer) {
-    if (!actionContainer) {
-      container.appendChild(button);
-      return;
-    }
-
-    const reference = findTrailingActionReference(container);
-    if (reference) container.insertBefore(button, reference);
-    else container.appendChild(button);
   }
 
   function createTimelinePostActions(options) {
@@ -182,14 +120,13 @@
       if (!article) return;
       if (article.querySelector(".ig-bulk-timeline-download")) return;
       const media = findPrimaryMedia(article);
-      const actionContainer = findActionContainer(article, media);
-      const container = actionContainer || findMediaContainer(article, media);
+      const container = findMediaContainer(article, media);
       if (!container || decorated.has(container) || container.querySelector(".ig-bulk-timeline-download")) return;
 
-      container.classList.add("ig-bulk-tile", actionContainer ? "ig-bulk-timeline-actions" : "ig-bulk-timeline-media");
+      container.classList.add("ig-bulk-tile", "ig-bulk-timeline-media");
       const button = createButton(article, options.onDownloadArticle);
-      button.classList.toggle("ig-bulk-timeline-download--overlay", !actionContainer);
-      mountButton(container, button, actionContainer);
+      button.classList.add("ig-bulk-timeline-download--overlay");
+      container.appendChild(button);
       decorated.add(container);
       buttons.add(button);
     }
@@ -203,7 +140,7 @@
       buttons.forEach((button) => button.remove());
       buttons.clear();
       decorated.forEach((container) => {
-        container.classList.remove("ig-bulk-timeline-actions", "ig-bulk-timeline-media");
+        container.classList.remove("ig-bulk-timeline-media");
         if (!container.querySelector(".ig-bulk-tile-download, .ig-bulk-tile-select")) container.classList.remove("ig-bulk-tile");
       });
       decorated.clear();
