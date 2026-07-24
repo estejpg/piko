@@ -7,12 +7,14 @@
 
   let settings = settingsStore.defaults();
   let control = null;
+  let pageMenu = null;
   let selectionDock = null;
   let toastHost = null;
   let lastVideoId = "";
   let lastRouteKey = "";
   let refreshTimer = null;
   let selectionBusy = false;
+  let selectionMode = false;
 
   const selected = new Map();
   const cardControls = new Map();
@@ -298,15 +300,47 @@
     if (!selectionDock) {
       selectionDock = ui.createSelectionDock({
         clearSelection,
-        downloadSelected
+        downloadSelected,
+        exitSelectionMode
       });
     }
     if (selectionDock.element && !selectionDock.element.isConnected) document.body.appendChild(selectionDock.element);
   }
 
+  function ensurePageMenu() {
+    if (!pageMenu) {
+      pageMenu = ui.createPageMenu({
+        openSettings() {
+          chrome.runtime.openOptionsPage();
+        },
+        toggleSelectionMode() {
+          setSelectionMode(!selectionMode);
+        }
+      });
+    }
+    if (pageMenu.element && !pageMenu.element.isConnected) document.body.appendChild(pageMenu.element);
+  }
+
+  function setSelectionMode(enabled) {
+    selectionMode = Boolean(enabled) && Boolean(currentVideoId() || isSupportedListingRoute());
+    if (!selectionMode && !selectionBusy) selected.clear();
+    ensureSelectionDock();
+    ensurePageMenu();
+    selectionDock.setActive(selectionMode);
+    pageMenu.setSelectionMode(selectionMode);
+    cardControls.forEach((controlApi) => controlApi.setSelectionMode(selectionMode));
+    syncSelectionUi();
+  }
+
+  function exitSelectionMode() {
+    if (selectionBusy) return;
+    setSelectionMode(false);
+  }
+
   function syncSelectionUi() {
     ensureSelectionDock();
     const items = Array.from(selected.values());
+    selectionDock.setActive(selectionMode);
     selectionDock.update(items);
     cardControls.forEach((control, card) => {
       if (!card.isConnected) {
@@ -314,13 +348,14 @@
         return;
       }
       const cardData = control.cardData;
+      control.setSelectionMode(selectionMode);
       control.setSelected(Boolean(cardData && selected.has(cardData.videoId)));
       card.classList.toggle("ig-bulk-youtube-card--selected", Boolean(cardData && selected.has(cardData.videoId)));
     });
   }
 
   function toggleSelect(cardData) {
-    if (!cardData || !cardData.videoId || selectionBusy) return;
+    if (!selectionMode || !cardData || !cardData.videoId || selectionBusy) return;
     if (selected.has(cardData.videoId)) selected.delete(cardData.videoId);
     else selected.set(cardData.videoId, cardData);
     syncSelectionUi();
@@ -341,6 +376,7 @@
     const toastId = showToast({ title: "Resolving selected thumbnails", detail: `${items.length} selected`, tone: "progress", progress: 5 }, 0);
     let downloaded = 0;
     let failed = 0;
+    let completed = false;
 
     try {
       for (let index = 0; index < items.length; index += 1) {
@@ -375,19 +411,41 @@
       });
       if (!failed) selected.clear();
       syncSelectionUi();
+      completed = true;
+      selectionDock.setProgress("Complete");
     } finally {
       selectionBusy = false;
       selectionDock.setBusy(false);
-      selectionDock.setProgress("");
+      if (completed) {
+        setTimeout(() => {
+          if (!selectionBusy) selectionDock.setProgress("");
+        }, 1400);
+      } else {
+        selectionDock.setProgress("");
+      }
     }
   }
 
+  function isElementVisible(element) {
+    if (!element || !element.isConnected) return false;
+    const style = getComputedStyle(element);
+    if (style.display === "none" || style.visibility === "hidden" || Number(style.opacity) === 0) return false;
+    const rect = element.getBoundingClientRect();
+    return rect.width > 0 && rect.height > 0 && rect.bottom > 0 && rect.top < window.innerHeight;
+  }
+
   function findMountTarget() {
-    return (
-      document.querySelector("#top-level-buttons-computed") ||
-      document.querySelector("ytd-watch-metadata #actions") ||
-      document.querySelector("ytd-watch-metadata")
-    );
+    const metadataSections = Array.from(document.querySelectorAll("ytd-watch-metadata")).filter(isElementVisible);
+    for (const metadata of metadataSections) {
+      const targets = [
+        metadata.querySelector("#actions #top-level-buttons-computed"),
+        metadata.querySelector("#top-level-buttons-computed"),
+        metadata.querySelector("#actions")
+      ];
+      const visibleTarget = targets.find(isElementVisible);
+      if (visibleTarget) return visibleTarget;
+    }
+    return null;
   }
 
   async function downloadTranscript(busyControl) {
@@ -540,8 +598,6 @@
         ].join(",")
       )
     );
-    const url = image && (image.currentSrc || image.src || image.getAttribute("src") || image.getAttribute("data-thumb"));
-    return url || previewUrl(videoId);
   }
 
   function cardDataFromRoot(card) {
@@ -564,16 +620,22 @@
   }
 
   function cardControlsMountFromCard(card) {
-    const rows = metadataRows(card);
-    if (rows.length) return rows[rows.length > 1 ? 1 : 0];
-
-    const fallbackSelectors = [
-      "yt-lockup-metadata-view-model",
-      "#details #meta",
-      "#meta",
-      "#details",
-      "#dismissible"
+    const thumbnailSelectors = [
+      "ytd-thumbnail",
+      "yt-thumbnail-view-model",
+      "a#thumbnail[href*='/watch']",
+      "a[href*='/watch?v=']",
+      "a[href^='/shorts/']"
     ];
+    for (const selector of thumbnailSelectors) {
+      const node = card.querySelector(selector);
+      if (inCard(node, card)) return node;
+    }
+
+    const rows = metadataRows(card);
+    if (rows.length) return rows[0];
+
+    const fallbackSelectors = ["#dismissible", "#details", "yt-lockup-metadata-view-model"];
     for (const selector of fallbackSelectors) {
       const node = card.querySelector(selector);
       if (inCard(node, card)) return node;
@@ -603,6 +665,7 @@
         mount.appendChild(existing.element);
       }
       existing.setSelected(selected.has(cardData.videoId));
+      existing.setSelectionMode(selectionMode);
       card.classList.toggle("ig-bulk-youtube-card--selected", selected.has(cardData.videoId));
       return;
     }
@@ -618,6 +681,7 @@
       toggleSelect
     });
     mount.appendChild(controlApi.element);
+    controlApi.setSelectionMode(selectionMode);
     controlApi.setSelected(selected.has(cardData.videoId));
     card.classList.toggle("ig-bulk-youtube-card--selected", selected.has(cardData.videoId));
     cardControls.set(card, controlApi);
@@ -646,6 +710,9 @@
     const routeChanged = routeKey !== lastRouteKey;
     if (routeChanged) {
       if (!selectionBusy) selected.clear();
+      selectionMode = false;
+      if (pageMenu) pageMenu.setSelectionMode(false);
+      if (selectionDock) selectionDock.setActive(false);
       destroyCardControls();
       lastRouteKey = routeKey;
     }
@@ -653,6 +720,9 @@
     if (!currentVideoId() && !isSupportedListingRoute()) {
       destroyCardControls();
       if (!selectionBusy) selected.clear();
+      selectionMode = false;
+      if (pageMenu) pageMenu.setSelectionMode(false);
+      if (selectionDock) selectionDock.setActive(false);
       syncSelectionUi();
       return;
     }
@@ -663,6 +733,9 @@
 
   function refresh() {
     const videoId = currentVideoId();
+    ensurePageMenu();
+    pageMenu.setVisible(Boolean(videoId || isSupportedListingRoute()));
+    pageMenu.setSelectionMode(selectionMode);
     if (videoId) {
       const mounted = mountWatchControl(videoId);
       if (!mounted && videoId !== lastVideoId) scheduleRefresh();
@@ -698,6 +771,7 @@
       settings = nextSettings;
     });
     ensureSelectionDock();
+    ensurePageMenu();
     refresh();
 
     document.addEventListener("yt-navigate-finish", scheduleRefresh);

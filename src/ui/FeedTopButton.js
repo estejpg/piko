@@ -2,14 +2,18 @@
   function createFeedTopButton(actions) {
     const root = document.createElement("section");
     root.id = "ig-bulk-feed-button";
-    root.className = "ig-bulk-feed ig-bulk-feed-dock";
-    root.innerHTML = [
-      '<div class="ig-bulk-feed-dock__rail" aria-label="Piko feed actions">',
+    root.className = "ig-bulk-feed ig-bulk-bottom-menu ig-bulk-page-menu";
+    const buttons = [
       dockButton("current", "Download current post or reel", "download", "Current"),
+      actions.select ? dockButton("select", "Select media", "select", "Select") : "",
       dockButton("folder", "Change folder", "folder", "Folder"),
-      dockButton("options", "Open settings", "settings", "Settings"),
+      dockButton("options", "Open settings", "settings", "Settings")
+    ].join("");
+    root.innerHTML = [
+      '<div class="ig-bulk-bottom-menu__rail" role="toolbar" aria-label="Piko page actions">',
+      buttons,
       '</div>',
-      '<div class="ig-bulk-feed-dock__status" data-role="status">Ready</div>'
+      '<div class="ig-bulk-bottom-menu__status" data-role="status" aria-live="polite">Ready</div>'
     ].join("");
 
     root.addEventListener("click", (event) => {
@@ -23,9 +27,20 @@
 
     return {
       element: root,
+      setSelectionMode(enabled) {
+        const button = root.querySelector('button[data-action="select"]');
+        if (button) {
+          button.classList.toggle("is-active", Boolean(enabled));
+          button.setAttribute("aria-pressed", enabled ? "true" : "false");
+        }
+        root.classList.toggle("is-suppressed", Boolean(enabled));
+      },
       setStatus(message) {
         const status = root.querySelector('[data-role="status"]');
-        if (status) status.textContent = message;
+        if (status) {
+          status.textContent = message || "Ready";
+          status.classList.toggle("has-message", Boolean(message && message !== "Ready"));
+        }
       }
     };
   }

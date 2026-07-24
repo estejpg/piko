@@ -2,15 +2,15 @@
   "manifest_version": 3,
   "name": "Piko",
   "short_name": "Piko",
-  "description": "Contextual media downloader for Instagram posts, reels, carousels, profile grids, and YouTube thumbnails.",
-  "version": "0.1.0",
+  "description": "Contextual Instagram media, YouTube thumbnail, transcript, selection, and batch download tools.",
+  "version": "0.2.0",
   "icons": {
     "16": "icons/16-piko-browser-logo.png",
     "32": "icons/32-piko-browser-logo.png",
     "48": "icons/48-piko-browser-logo.png",
     "128": "icons/128-piko-browser-logo.png"
   },
-  "permissions": ["storage"],
+  "permissions": ["activeTab", "storage"],
   "host_permissions": [
     "https://instagram.com/*",
     "https://*.instagram.com/*",
@@ -23,6 +23,7 @@
   ],
   "action": {
     "default_title": "Piko",
+    "default_popup": "popup.html",
     "default_icon": {
       "16": "icons/16-piko-browser-logo.png",
       "32": "icons/32-piko-browser-logo.png",

@@ -40,7 +40,7 @@
 
   function renderSelectedFolder(folderName) {
     selectedFolder.dataset.folderName = folderName || "";
-    selectedFolder.textContent = folderName ? folderName : "No folder selected yet.";
+    selectedFolder.textContent = folderName ? folderName : "Browser downloads";
   }
 
   showFeedButton.addEventListener("change", save);
