@@ -8,28 +8,43 @@
   </head>
   <body>
     <main class="options">
-      <h1>Piko</h1>
-      <label class="row">
-        <span>
-          <strong>Show feed button</strong>
-          <small>Display the compact downloader button on the Instagram timeline.</small>
-        </span>
-        <input id="showFeedButton" type="checkbox">
-      </label>
-      <label class="stack">
-        <span>
-          <strong>Filename pattern</strong>
-          <small>Available placeholders: {username}, {takenAt}, {id}, {type}, {index}.</small>
-        </span>
-        <input id="filenamePattern" type="text" spellcheck="false">
-      </label>
-      <section class="stack" aria-labelledby="selectedFolderLabel">
-        <span>
-          <strong id="selectedFolderLabel">Selected folder</strong>
-          <small id="selectedFolder">No folder selected yet.</small>
-        </span>
+      <header class="options__header">
+        <img src="icons/piko-browser-logo.svg" alt="">
+        <div>
+          <h1>Piko</h1>
+          <p>Lightweight controls for Instagram and YouTube.</p>
+        </div>
+      </header>
+
+      <section class="settings-list" aria-label="Piko settings">
+        <label class="setting-row">
+          <span>
+            <strong>Instagram page menu</strong>
+            <small>Show Piko’s compact bottom menu in the Instagram feed.</small>
+          </span>
+          <input id="showFeedButton" type="checkbox">
+        </label>
+
+        <label class="setting-row setting-row--stacked">
+          <span>
+            <strong>Filename pattern</strong>
+            <small>Use {username}, {takenAt}, {id}, {type}, and {index}.</small>
+          </span>
+          <input id="filenamePattern" type="text" spellcheck="false">
+        </label>
+
+        <div class="setting-row" aria-labelledby="selectedFolderLabel">
+          <span>
+            <strong id="selectedFolderLabel">Download folder</strong>
+            <small id="selectedFolder">Browser downloads</small>
+          </span>
+        </div>
       </section>
-      <p id="status" class="status">Ready</p>
+
+      <footer class="options__footer">
+        <p>Primary actions stay on Instagram and YouTube.</p>
+        <p id="status" class="status" aria-live="polite">Ready</p>
+      </footer>
     </main>
     <script src="src/shared/messages.js"></script>
     <script src="src/shared/settingsStore.js"></script>

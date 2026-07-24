@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Piko</title>
+    <link rel="stylesheet" href="styles/popup.css">
+  </head>
+  <body>
+    <main class="popup">
+      <header class="popup__header">
+        <img src="icons/piko-browser-logo.svg" alt="">
+        <div>
+          <h1>Piko</h1>
+          <p>Contextual media tools</p>
+        </div>
+      </header>
+
+      <section class="page-status" aria-live="polite">
+        <span class="page-status__dot" data-role="status-dot"></span>
+        <div>
+          <strong data-role="page-title">Checking this page</strong>
+          <span data-role="page-detail">Piko works directly on Instagram and YouTube.</span>
+        </div>
+      </section>
+
+      <dl class="details">
+        <div>
+          <dt>Folder</dt>
+          <dd data-role="folder">Browser downloads</dd>
+        </div>
+        <div>
+          <dt>Controls</dt>
+          <dd>On page</dd>
+        </div>
+      </dl>
+
+      <nav class="popup__actions" aria-label="Piko shortcuts">
+        <button type="button" data-action="settings">
+          <span>Settings</span>
+          <span aria-hidden="true">↗</span>
+        </button>
+        <button type="button" data-action="instagram">
+          <span>Open Instagram</span>
+          <span aria-hidden="true">↗</span>
+        </button>
+        <button type="button" data-action="youtube">
+          <span>Open YouTube</span>
+          <span aria-hidden="true">↗</span>
+        </button>
+      </nav>
+    </main>
+
+    <script src="src/shared/messages.js"></script>
+    <script src="src/shared/settingsStore.js"></script>
+    <script src="src/popup/popup.js"></script>
+  </body>
+</html>

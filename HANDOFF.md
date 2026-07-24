@@ -4,7 +4,7 @@ This repo is the Chrome extension project for **Piko**:
 
 <https://github.com/estejpg/piko>
 
-Piko is a Manifest V3 Chrome extension for contextual media downloading on Instagram and YouTube. It currently supports Instagram posts, reels, carousels, profile-grid actions, profile multi-select, thumbnail mode, and YouTube thumbnail downloading on watch pages, home cards, and recommended videos.
+Piko is a Manifest V3 Chrome extension for contextual media downloading on Instagram and YouTube. It supports Instagram posts, reels, carousels, modals, profile-grid actions, Select mode, thumbnail mode, and bulk downloads, plus YouTube thumbnails, transcripts, selection, and batch downloads across watch and listing routes.
 
 ## Current Repo State
 
@@ -17,6 +17,7 @@ Piko is a Manifest V3 Chrome extension for contextual media downloading on Insta
   - `LICENSE`
   - `.gitignore`
   - `options.html`
+  - `popup.html`
   - `src/`
   - `styles/`
   - `references/extension-references/`
@@ -80,6 +81,7 @@ NODE
   - YouTube web pages
   - `i.ytimg.com` for YouTube thumbnails
 - Options page: `options.html`
+- Toolbar popup: `popup.html`
 - Background service worker: `src/background/serviceWorker.js`
 - Instagram content scripts:
   - `src/content/mainWorldBridge.js` in the page `MAIN` world at `document_start`
@@ -126,15 +128,15 @@ Keep manifest-listed file paths relative to the repo root.
   - Normalizes Instagram media into downloadable item objects.
   - Handles post/reel/carousel/full-media and thumbnail targeting.
 - `src/ui/ProfileSideMenu.js`
-  - Compact profile dock with visible/profile/reels/folder/thumbnail actions.
+  - Site-derived bottom menu with visible/profile/reels/thumbnail/select/folder actions.
 - `src/ui/ProfileHoverButtons.js`
   - Profile grid hover download controls.
 - `src/ui/ProfileMultiSelect.js`
-  - Profile-only multi-select and selected-item action dock.
+  - Mode-gated profile/Explore selection controls and the selected-item bottom menu.
 - `src/ui/TimelinePostActions.js`
   - Timeline and modal media hover download overlays.
 - `src/ui/FeedTopButton.js`
-  - Compact feed dock for current-post, folder, and settings actions.
+  - Compact bottom page menu for current-post, Select where supported, folder, and settings actions.
 
 ### YouTube Flow
 
@@ -145,11 +147,23 @@ Keep manifest-listed file paths relative to the repo root.
     - current watch page
     - homepage video cards
     - recommended/sidebar video cards
-  - Manages multi-select thumbnail state and batch downloading.
+  - Scopes watch-page placement to visible `ytd-watch-metadata` actions.
+  - Manages explicit Select mode and batch downloading.
 - `src/ui/YouTubeThumbnailControl.js`
   - Watch-page thumbnail button.
-  - Card hover controls.
-  - Bottom selected-thumbnails dock with previews.
+  - Direct thumbnail-surface controls.
+  - YouTube page menu.
+  - Bottom selected-thumbnails menu with previews.
+
+### Popup Flow
+
+- `popup.html`
+- `src/popup/popup.js`
+- `styles/popup.css`
+  - Reports whether the active page is supported.
+  - Shows the remembered folder.
+  - Opens settings, Instagram, or YouTube.
+  - Remains secondary to the on-page experience.
 
 ### UI System
 
@@ -159,7 +173,7 @@ Keep manifest-listed file paths relative to the repo root.
 - `src/ui/ToastHost.js`
   - Shared structured toast host with neutral/success/warning/error/progress states.
 - `styles/content.css`
-  - Content-page UI tokens and overlay styles for Instagram and YouTube surfaces.
+  - Shared site-derived tokens, bottom menus, overlays, selection states, and toasts.
 - `styles/options.css`
   - Options page styling using the same product language.
 
@@ -168,19 +182,21 @@ Internal class names still use the historical `ig-bulk-*` namespace. That is imp
 ## Product Behavior To Preserve
 
 - Instagram profile pages:
-  - Compact profile dock appears only on profile-like pages.
-  - Hover download buttons appear on media tiles.
-  - Multi-select controls are profile-only and should not appear in the feed.
+  - Compact bottom menu appears only on profile-like pages.
+  - Direct download buttons appear on media tiles without depending on selection mode.
+  - Selection controls appear only after Select mode is activated.
   - Selected tiles stay visibly selected after hover ends.
   - Thumbnail Mode changes selected/bulk targeting to thumbnails/posters.
+  - Selected-item previews, count, Download, Clear, and progress live in a temporary bottom menu.
 - Instagram feed and modal views:
   - Download control is a media-area hover overlay, not injected into Instagram's native action row.
   - It should handle single images, videos/reels, and carousels.
   - Modal/lightbox post views should not duplicate feed controls.
 - YouTube:
-  - Watch pages expose a compact thumbnail download control.
-  - Homepage and recommended cards expose hover controls.
-  - Selected thumbnail dock appears only when one or more thumbnails are selected.
+  - Watch pages expose compact Thumbnail and Transcript controls beside the visible native action area.
+  - Homepage, search, subscriptions, channel, and recommended cards expose a direct thumbnail control.
+  - Selection affordances appear only during Select mode.
+  - The batch menu remains visible during Select mode, including its empty, progress, and completion states.
 - Settings:
   - Folder/name/settings should flow through `settingsStore`.
   - Do not create surface-specific settings caches that can drift.
@@ -188,6 +204,7 @@ Internal class names still use the historical `ig-bulk-*` namespace. That is imp
 ## Known Caveats
 
 - Instagram private/internal data structures are brittle. Keep all page-context Instagram access contained behind `mainWorldBridge.js` and resolver fallbacks.
+- Selected profile tiles and profile bulk resolution fall back to the media already rendered inside their matching tile when private resolution returns nothing.
 - Instagram and YouTube are SPAs. Any UI injection must be idempotent, route-aware, and cleaned up on navigation.
 - Avoid heavy MutationObserver work on scrolling grids. Throttle/debounce DOM scans and prefer adding one small overlay per stable media container.
 - Persisted File System Access handles may behave differently across page origins. The downloader already falls back to browser downloads when a saved handle is unavailable or stale.
@@ -205,7 +222,7 @@ Internal class names still use the historical `ig-bulk-*` namespace. That is imp
   - File saving belongs in `src/downloads/downloader.js`.
   - Settings belong in `src/shared/settingsStore.js`.
   - Filename behavior belongs in `src/shared/filename.js`.
-- Keep UI compact, contextual, and native-feeling. Avoid large panels, dashboards, or layout-shifting injections.
+- Keep UI compact, contextual, and native-feeling. Preserve the shared bottom-menu structure and avoid large panels, dashboards, or layout-shifting injections.
 
 ## Recommended Next Steps
 

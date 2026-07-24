@@ -16,6 +16,7 @@
   let toastHost = null;
   let activeProfileMode = null;
   let thumbnailMode = false;
+  let selectionMode = false;
   let routeRefreshTimer = null;
   let contextualRefreshFrame = null;
   let profilePositionFrame = null;
@@ -66,6 +67,11 @@
 
   function isFeedRoute(currentRoute) {
     return currentRoute.type === "feed";
+  }
+
+  function shouldShowPageMenu(currentRoute) {
+    if (currentRoute.type === "explore") return true;
+    return isFeedRoute(currentRoute) && settings.showFeedButton;
   }
 
   function supportsPostActions(currentRoute) {
@@ -164,9 +170,17 @@
       profileMenu = null;
     }
 
-    if (feedButton && (!isFeedRoute(route) || !settings.showFeedButton)) {
+    if (feedButton && !shouldShowPageMenu(route)) {
       feedButton.element.remove();
       feedButton = null;
+    }
+
+    if (feedButton && shouldShowPageMenu(route)) {
+      const hasSelectAction = Boolean(feedButton.element.querySelector('button[data-action="select"]'));
+      if (hasSelectAction !== supportsGridMultiSelect(route)) {
+        feedButton.element.remove();
+        feedButton = null;
+      }
     }
 
     if (timelineActions && !supportsPostActions(route)) {
@@ -182,6 +196,7 @@
     const nextMultiSelectKey = gridMultiSelectKey(route);
 
     if (profileMultiSelect && !supportsGridMultiSelect(route)) {
+      selectionMode = false;
       profileMultiSelect.destroy();
       profileMultiSelect = null;
       profileMultiSelectKey = "";
@@ -199,21 +214,25 @@
         profile: () => toggleProfileMode("profile", (token) => downloadProfileBulk("profile media", { token })),
         reels: () => toggleProfileMode("reels", (token) => downloadProfileBulk("profile reels", { reelsOnly: true, token })),
         thumbnail: () => toggleThumbnailMode(),
+        select: () => toggleSelectionMode(),
         cancel: () => cancelProfileMode("user"),
         folder: () => chooseFolder()
       });
       document.body.appendChild(profileMenu.element);
       if (profileMenu.setThumbnailMode) profileMenu.setThumbnailMode(thumbnailMode);
+      if (profileMenu.setSelectionMode) profileMenu.setSelectionMode(selectionMode);
       updateProfileMenuPosition();
     }
 
-    if (isFeedRoute(route) && settings.showFeedButton && !feedButton) {
+    if (shouldShowPageMenu(route) && !feedButton) {
       feedButton = window.IgBulkFeedTopButton.createFeedTopButton({
         current: () => downloadCurrentPostOrVisibleMedia(),
+        select: supportsGridMultiSelect(route) ? () => toggleSelectionMode() : null,
         folder: () => chooseFolder(),
         options: () => openOptions()
       });
       document.body.appendChild(feedButton.element);
+      if (feedButton.setSelectionMode) feedButton.setSelectionMode(selectionMode);
     }
 
     if (supportsPostActions(route) && !timelineActions) {
@@ -231,9 +250,16 @@
     if (supportsGridMultiSelect(route) && !profileMultiSelect) {
       profileMultiSelect = window.IgBulkProfileMultiSelect.createProfileMultiSelect({
         isThumbnailMode: () => thumbnailMode,
+        onExitSelectionMode: () => setSelectionMode(false),
+        onSelectionModeChanged: (enabled) => {
+          selectionMode = Boolean(enabled);
+          if (profileMenu && profileMenu.setSelectionMode) profileMenu.setSelectionMode(selectionMode);
+          if (feedButton && feedButton.setSelectionMode) feedButton.setSelectionMode(selectionMode);
+        },
         onDownloadSelected: (shortcodes, controls) => downloadSelectedProfileMedia(shortcodes, controls)
       });
       profileMultiSelectKey = nextMultiSelectKey;
+      profileMultiSelect.setActive(selectionMode);
     }
 
     refreshContextualActions();
@@ -255,18 +281,7 @@
 
   function updateProfileMenuPosition() {
     if (!profileMenu) return;
-    if (window.matchMedia("(max-width: 760px)").matches) {
-      profileMenu.element.style.top = "";
-      return;
-    }
-    const target =
-      document.querySelector("main header") ||
-      document.querySelector("main article") ||
-      document.querySelector("main") ||
-      document.body;
-    const rect = target.getBoundingClientRect();
-    const top = Math.max(92, Math.min(rect.bottom + 14, window.innerHeight - 240));
-    profileMenu.element.style.top = `${Math.round(top)}px`;
+    profileMenu.element.style.removeProperty("top");
   }
 
   function scheduleProfileMenuPosition() {
@@ -275,6 +290,18 @@
       profilePositionFrame = null;
       updateProfileMenuPosition();
     });
+  }
+
+  function setSelectionMode(enabled) {
+    selectionMode = Boolean(enabled) && supportsGridMultiSelect(route);
+    if (profileMultiSelect && profileMultiSelect.setActive) profileMultiSelect.setActive(selectionMode);
+    if (profileMenu && profileMenu.setSelectionMode) profileMenu.setSelectionMode(selectionMode);
+    if (feedButton && feedButton.setSelectionMode) feedButton.setSelectionMode(selectionMode);
+    if (selectionMode) setStatus("Select media");
+  }
+
+  function toggleSelectionMode() {
+    setSelectionMode(!selectionMode);
   }
 
   function clearProfileTemporaryUi() {
@@ -524,7 +551,14 @@
           progress: ((index + 1) / uniqueShortcodes.length) * 40
         });
         try {
-          const items = await resolvePostByShortcode(uniqueShortcodes[index], { thumbnailOnly });
+          const shortcode = uniqueShortcodes[index];
+          let items = await resolvePostByShortcode(shortcode, { thumbnailOnly });
+          if (!items.length) {
+            const anchor = Array.from(
+              document.querySelectorAll('main a[href*="/p/"], main a[href*="/reel/"], main a[href*="/tv/"]')
+            ).find((candidate) => resolver.shortcodeFromUrl(candidate.href) === shortcode);
+            items = collectDomMediaWithin(anchor, { thumbnailOnly });
+          }
           if (items.length) allItems.push(...items);
           else failed += 1;
         } catch (error) {
@@ -652,7 +686,13 @@
       assertModeActive(token);
       setStatus(`Resolving ${index + 1}/${maxItems}`);
       try {
-        const mediaItems = await resolvePostByShortcode(shortcodes[index], { thumbnailOnly });
+        let mediaItems = await resolvePostByShortcode(shortcodes[index], { thumbnailOnly });
+        if (!mediaItems.length) {
+          const anchor = Array.from(
+            document.querySelectorAll('main a[href*="/p/"], main a[href*="/reel/"], main a[href*="/tv/"]')
+          ).find((candidate) => resolver.shortcodeFromUrl(candidate.href) === shortcodes[index]);
+          mediaItems = collectDomMediaWithin(anchor, { thumbnailOnly });
+        }
         allItems.push(...mediaItems);
       } catch (error) {
         // Continue; a profile grid may contain private, removed, or rate-limited media.
@@ -766,6 +806,7 @@
       lastRoutePathname = pathname;
       const nextRoute = classifyRoute(location.pathname);
       const changed = JSON.stringify(nextRoute) !== JSON.stringify(route);
+      if (changed && selectionMode) setSelectionMode(false);
       route = nextRoute;
       mountUiForRoute();
       updateProfileMenuPosition();

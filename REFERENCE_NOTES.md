@@ -150,6 +150,20 @@ Constraints:
 
 ## Current Piko Reference-Inspired Patterns
 
+### Personal-Site Interaction Language
+
+The current surface layer adapts `estejpg/estejpg-site` rather than the visual branding of any reference extension:
+
+- true white/near-black surfaces;
+- Inter/system typography and small editorial labels;
+- subtle borders and restrained shadows;
+- 36px circular actions inside a translucent bottom pill;
+- short opacity/transform motion with reduced-motion support;
+- monochrome controls, with Piko blue reserved for the logo;
+- semantic status color only for success, warning, and error feedback.
+
+The shared bottom menu changes by route and mode. Selection replaces the normal page menu temporarily instead of opening a dashboard or making the toolbar popup primary.
+
 ### Main-World Bridge
 
 Instagram content uses a split:
@@ -181,6 +195,8 @@ All host-page UI injection must be repeat-safe:
 - Clean up when routes change.
 - Prefer stable media containers or action anchors.
 - Throttle DOM scans.
+
+YouTube listing actions mount directly to thumbnail surfaces and remain visible independently of ancestor hover state. Watch actions are resolved only from visible `ytd-watch-metadata` sections so hidden duplicate action-container IDs are ignored.
 
 This is especially important for Instagram profile grids and YouTube infinite scroll.
 
