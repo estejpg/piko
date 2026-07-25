@@ -735,23 +735,51 @@
   let watchDescriptionObserver = null;
   let watchedScrollRoots = new WeakSet();
 
+  function isMeasurableElement(element) {
+    if (!element || !element.isConnected || !element.getBoundingClientRect) return false;
+    const style = getComputedStyle(element);
+    if (style.display === "none" || style.visibility === "hidden") return false;
+    const rect = element.getBoundingClientRect();
+    return rect.width > 1 && rect.height > 1;
+  }
+
   function findWatchDescription() {
     const candidates = [
       "ytd-watch-metadata #description",
+      "ytd-watch-metadata #description-inline-expander",
       "ytd-expander#description",
       "#description-inline-expander",
-      "#description",
+      "ytd-watch-metadata #description-inner",
       "#description-inner",
-      "ytd-watch-metadata #description-inner"
+      "#description"
     ];
+    const measured = [];
     for (const selector of candidates) {
-      const node = document.querySelector(selector);
-      if (node && node.getBoundingClientRect && isElementVisible(node)) return node;
+      document.querySelectorAll(selector).forEach((node) => {
+        if (!isMeasurableElement(node)) return;
+        measured.push(node);
+      });
+      if (measured.length) break;
     }
-    return document.querySelector("#description, ytd-expander#description, #description-inline-expander");
+
+    if (!measured.length) return null;
+
+    // Prefer the largest measurable description node (avoids empty duplicate anchors).
+    return measured.sort((a, b) => {
+      const aRect = a.getBoundingClientRect();
+      const bRect = b.getBoundingClientRect();
+      return bRect.height * bRect.width - aRect.height * aRect.width;
+    })[0];
   }
 
   function hasScrolledPastWatchDescription() {
+    // Prefer the watch action controls: keep the bottom rail hidden while Thumbnail/Transcript
+    // are still on-screen, then reveal it after they leave the upper viewport.
+    const actions = document.querySelector("#ig-bulk-youtube-control");
+    if (actions && isMeasurableElement(actions)) {
+      if (actions.getBoundingClientRect().bottom >= 88) return false;
+    }
+
     const description = findWatchDescription();
     if (description) {
       const rect = description.getBoundingClientRect();
@@ -759,9 +787,13 @@
       return rect.top < 88;
     }
 
-    const metadata = Array.from(document.querySelectorAll("ytd-watch-metadata")).find(isElementVisible);
+    const metadata = Array.from(document.querySelectorAll("ytd-watch-metadata")).find(isMeasurableElement);
     if (metadata) {
       return metadata.getBoundingClientRect().bottom < 88;
+    }
+
+    if (actions && isMeasurableElement(actions)) {
+      return actions.getBoundingClientRect().bottom < 88;
     }
 
     const scrollTop =
@@ -897,8 +929,12 @@
       if (currentRouteKey() !== lastRouteKey || currentVideoId() !== lastVideoId || (lastVideoId && control && !control.element.isConnected) || missingConnectedCardControl) {
         scheduleRefresh();
       }
-      if (currentVideoId()) scheduleWatchPageMenuVisibility();
     }, 1000);
+
+    // YouTube often scrolls inside nested containers; poll watch-rail visibility cheaply.
+    setInterval(() => {
+      if (currentVideoId()) scheduleWatchPageMenuVisibility();
+    }, 250);
 
     const observer = new MutationObserver((records) => {
       for (const record of records) {
