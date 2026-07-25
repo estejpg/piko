@@ -732,35 +732,44 @@
     syncSelectionUi();
   }
 
+  let watchDescriptionObserver = null;
+  let watchedScrollRoots = new WeakSet();
+
   function findWatchDescription() {
     const candidates = [
-      "#description",
-      "#description-inline-expander",
       "ytd-watch-metadata #description",
       "ytd-expander#description",
-      "#description-inner"
+      "#description-inline-expander",
+      "#description",
+      "#description-inner",
+      "ytd-watch-metadata #description-inner"
     ];
     for (const selector of candidates) {
       const node = document.querySelector(selector);
-      if (node && node.getBoundingClientRect) return node;
+      if (node && node.getBoundingClientRect && isElementVisible(node)) return node;
     }
-    return null;
+    return document.querySelector("#description, ytd-expander#description, #description-inline-expander");
   }
 
   function hasScrolledPastWatchDescription() {
     const description = findWatchDescription();
     if (description) {
       const rect = description.getBoundingClientRect();
-      // Past the description once its bottom has left the upper viewport under the sticky chrome.
-      return rect.bottom < 96;
+      // Past the description once its top has cleared the sticky header band.
+      return rect.top < 88;
     }
 
     const metadata = Array.from(document.querySelectorAll("ytd-watch-metadata")).find(isElementVisible);
     if (metadata) {
-      return metadata.getBoundingClientRect().bottom < 96;
+      return metadata.getBoundingClientRect().bottom < 88;
     }
 
-    return window.scrollY > Math.max(420, window.innerHeight * 0.55);
+    const scrollTop =
+      window.scrollY ||
+      document.documentElement.scrollTop ||
+      document.body.scrollTop ||
+      0;
+    return scrollTop > Math.max(420, window.innerHeight * 0.55);
   }
 
   function updateWatchPageMenuVisibility() {
@@ -775,6 +784,8 @@
     pageMenu.setVisible(true);
     // Keep the bottom rail out of the way of Thumbnail/Transcript until the user scrolls past #description.
     pageMenu.setWatchDeferred(!hasScrolledPastWatchDescription());
+    ensureWatchDescriptionObserver();
+    bindWatchScrollRoots();
   }
 
   function scheduleWatchPageMenuVisibility() {
@@ -783,6 +794,50 @@
       watchMenuFrame = null;
       updateWatchPageMenuVisibility();
     });
+  }
+
+  function ensureWatchDescriptionObserver() {
+    if (watchDescriptionObserver) return;
+    if (typeof IntersectionObserver !== "function") return;
+    watchDescriptionObserver = new IntersectionObserver(() => {
+      scheduleWatchPageMenuVisibility();
+    }, {
+      root: null,
+      threshold: [0, 0.01, 0.1, 1],
+      rootMargin: "-88px 0px 0px 0px"
+    });
+  }
+
+  function bindWatchScrollRoots() {
+    const handler = scheduleWatchPageMenuVisibility;
+    const roots = [
+      window,
+      document,
+      document.scrollingElement,
+      document.documentElement,
+      document.body,
+      document.querySelector("ytd-app"),
+      document.querySelector("#content"),
+      document.querySelector("#page-manager"),
+      document.querySelector("ytd-watch-flexy"),
+      document.querySelector("#columns")
+    ];
+
+    roots.forEach((root) => {
+      if (!root || watchedScrollRoots.has(root)) return;
+      watchedScrollRoots.add(root);
+      root.addEventListener("scroll", handler, { passive: true, capture: true });
+    });
+
+    const description = findWatchDescription();
+    if (watchDescriptionObserver && description) {
+      try {
+        watchDescriptionObserver.disconnect();
+        watchDescriptionObserver.observe(description);
+      } catch (error) {
+        // Ignore observer attach failures on detached nodes.
+      }
+    }
   }
 
   function refresh() {
@@ -831,8 +886,9 @@
     document.addEventListener("yt-navigate-finish", scheduleRefresh);
     document.addEventListener("yt-page-data-updated", scheduleRefresh);
     window.addEventListener("popstate", scheduleRefresh);
-    window.addEventListener("scroll", scheduleWatchPageMenuVisibility, { passive: true });
     window.addEventListener("resize", scheduleWatchPageMenuVisibility);
+    bindWatchScrollRoots();
+    ensureWatchDescriptionObserver();
     setInterval(() => {
       let missingConnectedCardControl = false;
       cardControls.forEach((controlApi, card) => {
