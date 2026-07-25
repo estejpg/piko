@@ -6,6 +6,7 @@ Piko is a lightweight Chrome extension for saving Instagram media, YouTube thumb
 
 - Download Instagram feed posts, reels, modal media, single images, and ordered carousels.
 - Download visible profile media, profile media, reels, grid items, or thumbnails.
+- Toggle thumbnail mode on profile and Explore grids, then download poster/thumbnail images.
 - Enter Select mode only when needed, preview selected items, and run bulk downloads from the shared bottom menu.
 - Save YouTube thumbnails from watch pages, home, search, subscriptions, channel listings, and recommendations.
 - Download clean text transcripts beside YouTube’s native watch-page actions.
@@ -20,6 +21,7 @@ Piko is on-page first. The extension popup reports page status and links to sett
 - Posts, reels, carousels, and modal media receive a compact media-level download action.
 - Profile and Explore grid tiles receive a direct download action.
 - Profile pages use a bottom menu for visible media, profile media, reels, thumbnail mode, Select mode, and folder access.
+- Explore uses a page menu for the current item, Select mode, thumbnail mode, folder, and settings.
 - The feed uses a smaller page menu for the current item, folder, and settings.
 - Select mode temporarily replaces the page menu with previews, a count, Download, Clear, progress, and completion state.
 - High-quality private resolution remains the first choice. When Instagram’s internals do not return media, Piko falls back to media already present in the relevant DOM surface.
@@ -27,6 +29,7 @@ Piko is on-page first. The extension popup reports page status and links to sett
 ### YouTube
 
 - Watch-page Thumbnail and Transcript actions mount only in a visible `ytd-watch-metadata` action area.
+- On watch pages, the bottom Select/Settings rail stays hidden until you scroll past the video description, then returns when you scroll back up.
 - Listing controls mount directly on thumbnail surfaces and remain independently reachable when YouTube renders inline previews.
 - Select mode reveals per-thumbnail selection controls and temporarily replaces the page menu with the shared batch-download menu.
 - Route changes and infinite-scroll scans reuse or move existing controls instead of duplicating them.

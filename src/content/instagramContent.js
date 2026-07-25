@@ -177,7 +177,9 @@
 
     if (feedButton && shouldShowPageMenu(route)) {
       const hasSelectAction = Boolean(feedButton.element.querySelector('button[data-action="select"]'));
-      if (hasSelectAction !== supportsGridMultiSelect(route)) {
+      const hasThumbnailAction = Boolean(feedButton.element.querySelector('button[data-action="thumbnail"]'));
+      const wantsThumbnailAction = route.type === "explore";
+      if (hasSelectAction !== supportsGridMultiSelect(route) || hasThumbnailAction !== wantsThumbnailAction) {
         feedButton.element.remove();
         feedButton = null;
       }
@@ -228,11 +230,13 @@
       feedButton = window.IgBulkFeedTopButton.createFeedTopButton({
         current: () => downloadCurrentPostOrVisibleMedia(),
         select: supportsGridMultiSelect(route) ? () => toggleSelectionMode() : null,
+        thumbnail: route.type === "explore" ? () => toggleThumbnailMode() : null,
         folder: () => chooseFolder(),
         options: () => openOptions()
       });
       document.body.appendChild(feedButton.element);
       if (feedButton.setSelectionMode) feedButton.setSelectionMode(selectionMode);
+      if (feedButton.setThumbnailMode) feedButton.setThumbnailMode(thumbnailMode);
     }
 
     if (supportsPostActions(route) && !timelineActions) {
@@ -380,6 +384,7 @@
   function toggleThumbnailMode() {
     thumbnailMode = !thumbnailMode;
     if (profileMenu && profileMenu.setThumbnailMode) profileMenu.setThumbnailMode(thumbnailMode);
+    if (feedButton && feedButton.setThumbnailMode) feedButton.setThumbnailMode(thumbnailMode);
     if (profileMultiSelect && profileMultiSelect.refresh) profileMultiSelect.refresh();
     setStatus(thumbnailMode ? "Thumbnails active" : "Thumbnails off");
     showToast({

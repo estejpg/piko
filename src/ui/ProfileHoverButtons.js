@@ -38,7 +38,13 @@
       anchors.forEach((anchor) => {
         if (!anchor.isConnected) anchors.delete(anchor);
       });
-      document.querySelectorAll('main a[href*="/p/"], main a[href*="/reel/"], main a[href*="/tv/"]').forEach(injectAnchor);
+      // Profile and Explore grids (including /username/reels/) can render outside a strict main subtree.
+      document
+        .querySelectorAll('main a[href*="/p/"], main a[href*="/reel/"], main a[href*="/tv/"], a[href*="/reel/"] img, a[href*="/p/"] img')
+        .forEach((node) => {
+          const anchor = node.closest ? node.closest('a[href*="/p/"], a[href*="/reel/"], a[href*="/tv/"]') : node;
+          if (anchor) injectAnchor(anchor);
+        });
     }
 
     function destroy() {

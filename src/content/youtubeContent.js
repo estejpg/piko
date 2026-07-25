@@ -13,6 +13,7 @@
   let lastVideoId = "";
   let lastRouteKey = "";
   let refreshTimer = null;
+  let watchMenuFrame = null;
   let selectionBusy = false;
   let selectionMode = false;
 
@@ -731,11 +732,151 @@
     syncSelectionUi();
   }
 
+  let watchDescriptionObserver = null;
+  let watchedScrollRoots = new WeakSet();
+
+  function isMeasurableElement(element) {
+    if (!element || !element.isConnected || !element.getBoundingClientRect) return false;
+    const style = getComputedStyle(element);
+    if (style.display === "none" || style.visibility === "hidden") return false;
+    const rect = element.getBoundingClientRect();
+    return rect.width > 1 && rect.height > 1;
+  }
+
+  function findWatchDescription() {
+    const candidates = [
+      "ytd-watch-metadata #description",
+      "ytd-watch-metadata #description-inline-expander",
+      "ytd-expander#description",
+      "#description-inline-expander",
+      "ytd-watch-metadata #description-inner",
+      "#description-inner",
+      "#description"
+    ];
+    const measured = [];
+    for (const selector of candidates) {
+      document.querySelectorAll(selector).forEach((node) => {
+        if (!isMeasurableElement(node)) return;
+        measured.push(node);
+      });
+      if (measured.length) break;
+    }
+
+    if (!measured.length) return null;
+
+    // Prefer the largest measurable description node (avoids empty duplicate anchors).
+    return measured.sort((a, b) => {
+      const aRect = a.getBoundingClientRect();
+      const bRect = b.getBoundingClientRect();
+      return bRect.height * bRect.width - aRect.height * aRect.width;
+    })[0];
+  }
+
+  function hasScrolledPastWatchDescription() {
+    // Prefer the watch action controls: keep the bottom rail hidden while Thumbnail/Transcript
+    // are still on-screen, then reveal it after they leave the upper viewport.
+    const actions = document.querySelector("#ig-bulk-youtube-control");
+    if (actions && isMeasurableElement(actions)) {
+      if (actions.getBoundingClientRect().bottom >= 88) return false;
+    }
+
+    const description = findWatchDescription();
+    if (description) {
+      const rect = description.getBoundingClientRect();
+      // Past the description once its top has cleared the sticky header band.
+      return rect.top < 88;
+    }
+
+    const metadata = Array.from(document.querySelectorAll("ytd-watch-metadata")).find(isMeasurableElement);
+    if (metadata) {
+      return metadata.getBoundingClientRect().bottom < 88;
+    }
+
+    if (actions && isMeasurableElement(actions)) {
+      return actions.getBoundingClientRect().bottom < 88;
+    }
+
+    const scrollTop =
+      window.scrollY ||
+      document.documentElement.scrollTop ||
+      document.body.scrollTop ||
+      0;
+    return scrollTop > Math.max(420, window.innerHeight * 0.55);
+  }
+
+  function updateWatchPageMenuVisibility() {
+    ensurePageMenu();
+    const videoId = currentVideoId();
+    if (!videoId) {
+      pageMenu.setVisible(isSupportedListingRoute());
+      pageMenu.setWatchDeferred(false);
+      return;
+    }
+
+    pageMenu.setVisible(true);
+    // Keep the bottom rail out of the way of Thumbnail/Transcript until the user scrolls past #description.
+    pageMenu.setWatchDeferred(!hasScrolledPastWatchDescription());
+    ensureWatchDescriptionObserver();
+    bindWatchScrollRoots();
+  }
+
+  function scheduleWatchPageMenuVisibility() {
+    if (watchMenuFrame) return;
+    watchMenuFrame = requestAnimationFrame(() => {
+      watchMenuFrame = null;
+      updateWatchPageMenuVisibility();
+    });
+  }
+
+  function ensureWatchDescriptionObserver() {
+    if (watchDescriptionObserver) return;
+    if (typeof IntersectionObserver !== "function") return;
+    watchDescriptionObserver = new IntersectionObserver(() => {
+      scheduleWatchPageMenuVisibility();
+    }, {
+      root: null,
+      threshold: [0, 0.01, 0.1, 1],
+      rootMargin: "-88px 0px 0px 0px"
+    });
+  }
+
+  function bindWatchScrollRoots() {
+    const handler = scheduleWatchPageMenuVisibility;
+    const roots = [
+      window,
+      document,
+      document.scrollingElement,
+      document.documentElement,
+      document.body,
+      document.querySelector("ytd-app"),
+      document.querySelector("#content"),
+      document.querySelector("#page-manager"),
+      document.querySelector("ytd-watch-flexy"),
+      document.querySelector("#columns")
+    ];
+
+    roots.forEach((root) => {
+      if (!root || watchedScrollRoots.has(root)) return;
+      watchedScrollRoots.add(root);
+      root.addEventListener("scroll", handler, { passive: true, capture: true });
+    });
+
+    const description = findWatchDescription();
+    if (watchDescriptionObserver && description) {
+      try {
+        watchDescriptionObserver.disconnect();
+        watchDescriptionObserver.observe(description);
+      } catch (error) {
+        // Ignore observer attach failures on detached nodes.
+      }
+    }
+  }
+
   function refresh() {
     const videoId = currentVideoId();
     ensurePageMenu();
-    pageMenu.setVisible(Boolean(videoId || isSupportedListingRoute()));
     pageMenu.setSelectionMode(selectionMode);
+    updateWatchPageMenuVisibility();
     if (videoId) {
       const mounted = mountWatchControl(videoId);
       if (!mounted && videoId !== lastVideoId) scheduleRefresh();
@@ -777,6 +918,9 @@
     document.addEventListener("yt-navigate-finish", scheduleRefresh);
     document.addEventListener("yt-page-data-updated", scheduleRefresh);
     window.addEventListener("popstate", scheduleRefresh);
+    window.addEventListener("resize", scheduleWatchPageMenuVisibility);
+    bindWatchScrollRoots();
+    ensureWatchDescriptionObserver();
     setInterval(() => {
       let missingConnectedCardControl = false;
       cardControls.forEach((controlApi, card) => {
@@ -786,6 +930,11 @@
         scheduleRefresh();
       }
     }, 1000);
+
+    // YouTube often scrolls inside nested containers; poll watch-rail visibility cheaply.
+    setInterval(() => {
+      if (currentVideoId()) scheduleWatchPageMenuVisibility();
+    }, 250);
 
     const observer = new MutationObserver((records) => {
       for (const record of records) {

@@ -189,11 +189,15 @@ Internal class names still use the historical `ig-bulk-*` namespace. That is imp
   - Thumbnail Mode changes selected/bulk targeting to thumbnails/posters.
   - Selected-item previews, count, Download, Clear, and progress live in a temporary bottom menu.
 - Instagram feed and modal views:
-  - Download control is a media-area hover overlay, not injected into Instagram's native action row.
+  - Download control is a media-area overlay on the media itself, not injected into Instagram's native action row.
   - It should handle single images, videos/reels, and carousels.
-  - Modal/lightbox post views should not duplicate feed controls.
+  - Modal/lightbox post views should not duplicate feed controls behind the dialog, and the overlay must stay on the media surface so it remains clickable.
+- Instagram Explore:
+  - Page menu exposes Current, Select, thumbnail mode, folder, and settings.
+  - Grid tiles keep direct download and Select-mode controls.
 - YouTube:
   - Watch pages expose compact Thumbnail and Transcript controls beside the visible native action area.
+  - On watch pages, the bottom Select/Settings rail appears only after scrolling past `#description`, and hides again when scrolling back up.
   - Homepage, search, subscriptions, channel, and recommended cards expose a direct thumbnail control.
   - Selection affordances appear only during Select mode.
   - The batch menu remains visible during Select mode, including its empty, progress, and completion states.
