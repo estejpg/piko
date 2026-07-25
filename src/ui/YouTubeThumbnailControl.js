@@ -147,6 +147,9 @@
       },
       setVisible(visible) {
         root.classList.toggle("is-route-visible", Boolean(visible));
+      },
+      setWatchDeferred(deferred) {
+        root.classList.toggle("is-watch-deferred", Boolean(deferred));
       }
     };
   }

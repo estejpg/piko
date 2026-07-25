@@ -13,6 +13,7 @@
   let lastVideoId = "";
   let lastRouteKey = "";
   let refreshTimer = null;
+  let watchMenuFrame = null;
   let selectionBusy = false;
   let selectionMode = false;
 
@@ -731,11 +732,64 @@
     syncSelectionUi();
   }
 
+  function findWatchDescription() {
+    const candidates = [
+      "#description",
+      "#description-inline-expander",
+      "ytd-watch-metadata #description",
+      "ytd-expander#description",
+      "#description-inner"
+    ];
+    for (const selector of candidates) {
+      const node = document.querySelector(selector);
+      if (node && node.getBoundingClientRect) return node;
+    }
+    return null;
+  }
+
+  function hasScrolledPastWatchDescription() {
+    const description = findWatchDescription();
+    if (description) {
+      const rect = description.getBoundingClientRect();
+      // Past the description once its bottom has left the upper viewport under the sticky chrome.
+      return rect.bottom < 96;
+    }
+
+    const metadata = Array.from(document.querySelectorAll("ytd-watch-metadata")).find(isElementVisible);
+    if (metadata) {
+      return metadata.getBoundingClientRect().bottom < 96;
+    }
+
+    return window.scrollY > Math.max(420, window.innerHeight * 0.55);
+  }
+
+  function updateWatchPageMenuVisibility() {
+    ensurePageMenu();
+    const videoId = currentVideoId();
+    if (!videoId) {
+      pageMenu.setVisible(isSupportedListingRoute());
+      pageMenu.setWatchDeferred(false);
+      return;
+    }
+
+    pageMenu.setVisible(true);
+    // Keep the bottom rail out of the way of Thumbnail/Transcript until the user scrolls past #description.
+    pageMenu.setWatchDeferred(!hasScrolledPastWatchDescription());
+  }
+
+  function scheduleWatchPageMenuVisibility() {
+    if (watchMenuFrame) return;
+    watchMenuFrame = requestAnimationFrame(() => {
+      watchMenuFrame = null;
+      updateWatchPageMenuVisibility();
+    });
+  }
+
   function refresh() {
     const videoId = currentVideoId();
     ensurePageMenu();
-    pageMenu.setVisible(Boolean(videoId || isSupportedListingRoute()));
     pageMenu.setSelectionMode(selectionMode);
+    updateWatchPageMenuVisibility();
     if (videoId) {
       const mounted = mountWatchControl(videoId);
       if (!mounted && videoId !== lastVideoId) scheduleRefresh();
@@ -777,6 +831,8 @@
     document.addEventListener("yt-navigate-finish", scheduleRefresh);
     document.addEventListener("yt-page-data-updated", scheduleRefresh);
     window.addEventListener("popstate", scheduleRefresh);
+    window.addEventListener("scroll", scheduleWatchPageMenuVisibility, { passive: true });
+    window.addEventListener("resize", scheduleWatchPageMenuVisibility);
     setInterval(() => {
       let missingConnectedCardControl = false;
       cardControls.forEach((controlApi, card) => {
@@ -785,6 +841,7 @@
       if (currentRouteKey() !== lastRouteKey || currentVideoId() !== lastVideoId || (lastVideoId && control && !control.element.isConnected) || missingConnectedCardControl) {
         scheduleRefresh();
       }
+      if (currentVideoId()) scheduleWatchPageMenuVisibility();
     }, 1000);
 
     const observer = new MutationObserver((records) => {

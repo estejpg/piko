@@ -6,6 +6,10 @@
     return visibleWidth * visibleHeight;
   }
 
+  function isModalSurface(element) {
+    return Boolean(element && element.closest("[role='dialog'], [aria-modal='true']"));
+  }
+
   function findPrimaryMedia(article) {
     const media = Array.from(article.querySelectorAll("img, video")).filter((node) => {
       const rect = node.getBoundingClientRect();
@@ -26,11 +30,14 @@
       const rect = cursor.getBoundingClientRect();
       const containsMedia = rect.width >= mediaRect.width * 0.92 && rect.height >= mediaRect.height * 0.92;
       const hugsMediaVertically = rect.top >= mediaRect.top - 36 && rect.bottom <= mediaRect.bottom + 36;
-      const notTooLarge = rect.height <= Math.max(mediaRect.height * 1.12, mediaRect.height + 48);
-      if (containsMedia && hugsMediaVertically && notTooLarge) best = cursor;
+      const hugsMediaHorizontally = rect.left >= mediaRect.left - 36 && rect.right <= mediaRect.right + 36;
+      const notTooTall = rect.height <= Math.max(mediaRect.height * 1.12, mediaRect.height + 48);
+      const notTooWide = rect.width <= Math.max(mediaRect.width * 1.18, mediaRect.width + 72);
+      if (containsMedia && hugsMediaVertically && hugsMediaHorizontally && notTooTall && notTooWide) best = cursor;
       cursor = cursor.parentElement;
     }
 
+    // Prefer a positioned ancestor that still hugs the media; fall back to the media parent.
     return best || media.parentElement;
   }
 
@@ -75,13 +82,40 @@
     return null;
   }
 
+  function openModalRoot() {
+    return (
+      document.querySelector("[role='dialog'] article, [aria-modal='true'] article") ||
+      document.querySelector("[role='dialog'], [aria-modal='true']")
+    );
+  }
+
   function collectTimelineRoots() {
     const roots = new Set();
-    document.querySelectorAll("main article, [role='dialog'] article, [aria-modal='true'] article").forEach((article) => roots.add(article));
-    document.querySelectorAll("main video, main a[href*='/reel/'], [role='dialog'] video, [role='dialog'] a[href*='/reel/'], [aria-modal='true'] video, [aria-modal='true'] a[href*='/reel/']").forEach((node) => {
+    const modalOpen = Boolean(openModalRoot());
+
+    // When a post/reel modal is open over the feed, only decorate the modal surface.
+    // Decorating the obscured feed behind it places unreachable controls in the wrong stacking context.
+    const articleSelector = modalOpen
+      ? "[role='dialog'] article, [aria-modal='true'] article"
+      : "main article, [role='dialog'] article, [aria-modal='true'] article";
+    document.querySelectorAll(articleSelector).forEach((article) => roots.add(article));
+
+    const mediaSelector = modalOpen
+      ? "[role='dialog'] video, [role='dialog'] a[href*='/reel/'], [aria-modal='true'] video, [aria-modal='true'] a[href*='/reel/'], [role='dialog'] img, [aria-modal='true'] img"
+      : "main video, main a[href*='/reel/'], [role='dialog'] video, [role='dialog'] a[href*='/reel/'], [aria-modal='true'] video, [aria-modal='true'] a[href*='/reel/']";
+    document.querySelectorAll(mediaSelector).forEach((node) => {
       const root = findMediaRoot(node);
       if (root) roots.add(root);
     });
+
+    // Direct /p/ and /reel/ pages sometimes render the post outside a dialog and without a classic article.
+    if (!modalOpen && !roots.size) {
+      document.querySelectorAll("main img, main video").forEach((node) => {
+        const root = findMediaRoot(node) || node.closest("article, section, main > div > div");
+        if (root && isWithinSupportedSurface(root) && findPrimaryMedia(root)) roots.add(root);
+      });
+    }
+
     return Array.from(roots);
   }
 
@@ -116,16 +150,43 @@
       });
     }
 
+    function removeButtonFrom(container) {
+      container.querySelectorAll(".ig-bulk-timeline-download").forEach((button) => {
+        buttons.delete(button);
+        button.remove();
+      });
+      container.classList.remove("ig-bulk-timeline-media");
+      if (!container.querySelector(".ig-bulk-tile-download, .ig-bulk-tile-select")) {
+        container.classList.remove("ig-bulk-tile");
+      }
+      decorated.delete(container);
+    }
+
     function injectArticle(article) {
-      if (!article) return;
-      if (article.querySelector(".ig-bulk-timeline-download")) return;
+      if (!article || !article.isConnected) return;
+
       const media = findPrimaryMedia(article);
       const container = findMediaContainer(article, media);
-      if (!container || decorated.has(container) || container.querySelector(".ig-bulk-timeline-download")) return;
+      if (!container) return;
+
+      const existingInRoot = article.querySelector(".ig-bulk-timeline-download");
+      if (existingInRoot) {
+        const existingContainer = existingInRoot.closest(".ig-bulk-timeline-media") || existingInRoot.parentElement;
+        // Remount when the previous mount attached to a wider modal/sidebar wrapper.
+        if (existingContainer && existingContainer !== container) {
+          removeButtonFrom(existingContainer);
+        } else if (existingInRoot.isConnected) {
+          return;
+        }
+      }
+
+      if (decorated.has(container) && container.querySelector(".ig-bulk-timeline-download")) return;
+      if (container.querySelector(".ig-bulk-timeline-download")) return;
 
       container.classList.add("ig-bulk-tile", "ig-bulk-timeline-media");
       const button = createButton(article, options.onDownloadArticle);
       button.classList.add("ig-bulk-timeline-download--overlay");
+      if (isModalSurface(article)) button.classList.add("ig-bulk-timeline-download--modal");
       container.appendChild(button);
       decorated.add(container);
       buttons.add(button);
@@ -133,6 +194,14 @@
 
     function refresh() {
       pruneDisconnected();
+
+      // Drop feed decorations that are obscured behind an open modal.
+      if (openModalRoot()) {
+        decorated.forEach((container) => {
+          if (!isModalSurface(container)) removeButtonFrom(container);
+        });
+      }
+
       collectTimelineRoots().forEach(injectArticle);
     }
 

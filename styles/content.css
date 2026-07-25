@@ -272,6 +272,13 @@ html[style*="color-scheme: dark"] {
   display: flex;
 }
 
+/* Watch pages keep the bottom rail hidden until the user scrolls past #description. */
+.ig-bulk-youtube-page-menu.is-route-visible.is-watch-deferred {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(-50%) translateY(8px) scale(0.985);
+}
+
 .ig-bulk-tile,
 .ig-bulk-timeline-media,
 .ig-bulk-youtube-card {
@@ -280,7 +287,7 @@ html[style*="color-scheme: dark"] {
 
 .ig-bulk-tile-download {
   position: absolute;
-  z-index: 12;
+  z-index: 2147483640;
   top: 9px;
   right: 9px;
   display: inline-flex;
@@ -296,6 +303,7 @@ html[style*="color-scheme: dark"] {
   box-shadow: 0 4px 18px rgba(0, 0, 0, 0.12);
   color: #111;
   opacity: 0.84;
+  pointer-events: auto;
   transform: translateY(0);
 }
 
@@ -338,6 +346,15 @@ html[style*="color-scheme: dark"] {
 .ig-bulk-timeline-download--overlay {
   top: 12px;
   right: 12px;
+}
+
+.ig-bulk-timeline-media {
+  isolation: isolate;
+  overflow: visible !important;
+}
+
+.ig-bulk-timeline-download--modal {
+  z-index: 2147483646;
 }
 
 .ig-bulk-tile-select {
@@ -460,8 +477,10 @@ html[style*="color-scheme: dark"] {
   white-space: nowrap;
 }
 
-.ig-bulk-selection-bar__download,
-.ig-bulk-youtube-selection-dock__download {
+/* Higher specificity than `.ig-bulk-selection-bar button { color: inherit }` so the
+   filled download pill keeps light foreground text on the dark background. */
+.ig-bulk-selection-bar button.ig-bulk-selection-bar__download,
+.ig-bulk-youtube-selection-dock button.ig-bulk-youtube-selection-dock__download {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -472,6 +491,12 @@ html[style*="color-scheme: dark"] {
   color: var(--piko-page);
   font-size: 11px;
   font-weight: 560;
+}
+
+.ig-bulk-selection-bar button.ig-bulk-selection-bar__download .ig-bulk-icon,
+.ig-bulk-youtube-selection-dock button.ig-bulk-youtube-selection-dock__download .ig-bulk-icon {
+  color: inherit;
+  stroke: currentColor;
 }
 
 .ig-bulk-selection-bar__clear,
@@ -799,13 +824,13 @@ html[style*="color-scheme: dark"] {
     padding-inline: 5px;
   }
 
-  .ig-bulk-selection-bar__download,
-  .ig-bulk-youtube-selection-dock__download {
+  .ig-bulk-selection-bar button.ig-bulk-selection-bar__download,
+  .ig-bulk-youtube-selection-dock button.ig-bulk-youtube-selection-dock__download {
     padding-inline: 10px;
   }
 
-  .ig-bulk-selection-bar__download span,
-  .ig-bulk-youtube-selection-dock__download span {
+  .ig-bulk-selection-bar button.ig-bulk-selection-bar__download span,
+  .ig-bulk-youtube-selection-dock button.ig-bulk-youtube-selection-dock__download span {
     display: none;
   }
 
