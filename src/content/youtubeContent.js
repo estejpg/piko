@@ -16,6 +16,7 @@
   let watchMenuFrame = null;
   let selectionBusy = false;
   let selectionMode = false;
+  let shortcutController = null;
 
   const selected = new Map();
   const cardControls = new Map();
@@ -49,11 +50,16 @@
     return getToastHost().update(id, toast);
   }
 
+  function isShortsPath(pathname) {
+    return String(pathname || "").startsWith("/shorts/");
+  }
+
   function currentVideoId() {
     try {
       const url = new URL(location.href);
-      if (url.pathname !== "/watch") return "";
-      return url.searchParams.get("v") || "";
+      if (url.pathname === "/watch") return url.searchParams.get("v") || "";
+      if (isShortsPath(url.pathname)) return url.pathname.split("/").filter(Boolean)[1] || "";
+      return "";
     } catch (error) {
       return "";
     }
@@ -88,7 +94,14 @@
 
   function currentRouteKey() {
     const videoId = currentVideoId();
-    if (videoId) return `watch:${videoId}`;
+    if (videoId) {
+      try {
+        if (isShortsPath(new URL(location.href).pathname)) return `shorts:${videoId}`;
+      } catch (error) {
+        // Fall through to watch key.
+      }
+      return `watch:${videoId}`;
+    }
     try {
       const url = new URL(location.href);
       if (!isSupportedListingRoute()) return "";
@@ -269,10 +282,23 @@
 
     const toastId = showToast({ title: "Resolving thumbnail", detail: cardData.title || cardData.videoId, tone: "progress", progress: 12 }, 0);
     try {
-      const thumbnail = await fetchBestThumbnail(cardData.videoId);
+      let thumbnail;
+      try {
+        thumbnail = await fetchBestThumbnail(cardData.videoId);
+      } catch (error) {
+        const useHealth = Boolean(settings && settings.showReliabilityToasts);
+        updateToast(toastId, {
+          title: useHealth ? "Could not resolve thumbnail" : "Thumbnail download failed",
+          detail: error.message || "Could not download this thumbnail.",
+          tone: useHealth ? "health" : "error",
+          progress: null,
+          timeoutMs: 5200
+        });
+        return;
+      }
       const item = buildThumbnailItem(cardData, thumbnail);
       updateToast(toastId, { title: "Downloading thumbnail", detail: item.filename, tone: "progress", progress: 65 });
-      const result = await downloader.saveBlobItem(item, thumbnail.blob);
+      const result = await downloader.saveBlobItem(item, thumbnail.blob, null, { source: "youtube" });
       updateToast(toastId, {
         title: "Thumbnail saved",
         detail: result && result.directoryName ? `Saved to ${result.directoryName}` : item.filename,
@@ -377,6 +403,7 @@
     const toastId = showToast({ title: "Resolving selected thumbnails", detail: `${items.length} selected`, tone: "progress", progress: 5 }, 0);
     let downloaded = 0;
     let failed = 0;
+    let resolveFailed = 0;
     let completed = false;
 
     try {
@@ -391,10 +418,15 @@
           const thumbnail = await fetchBestThumbnail(cardData.videoId);
           const item = buildThumbnailItem(cardData, thumbnail);
           selectionDock.setProgress(`Downloading ${index + 1}/${items.length}`);
-          await downloader.saveBlobItem(item, thumbnail.blob);
-          downloaded += 1;
+          try {
+            await downloader.saveBlobItem(item, thumbnail.blob, null, { source: "youtube" });
+            downloaded += 1;
+          } catch (error) {
+            failed += 1;
+          }
         } catch (error) {
           failed += 1;
+          resolveFailed += 1;
         }
         updateToast(toastId, {
           title: "Downloading selected thumbnails",
@@ -403,10 +435,12 @@
         });
       }
 
+      const allFailedAtResolve = !downloaded && failed > 0 && resolveFailed === items.length;
+      const useHealth = allFailedAtResolve && Boolean(settings && settings.showReliabilityToasts);
       updateToast(toastId, {
         title: failed ? "Thumbnail batch finished" : "Thumbnails saved",
         detail: `${downloaded} saved${failed ? `, ${failed} failed` : ""}`,
-        tone: failed ? "warning" : "success",
+        tone: useHealth ? "health" : failed ? "warning" : "success",
         progress: null,
         timeoutMs: 5200
       });
@@ -446,6 +480,47 @@
       const visibleTarget = targets.find(isElementVisible);
       if (visibleTarget) return visibleTarget;
     }
+
+    let onShorts = false;
+    try {
+      onShorts = isShortsPath(new URL(location.href).pathname);
+    } catch (error) {
+      onShorts = false;
+    }
+    if (!onShorts) return null;
+
+    const existing = document.getElementById("ig-bulk-youtube-control");
+    if (existing && existing.parentElement && isElementVisible(existing.parentElement)) {
+      return existing.parentElement;
+    }
+
+    const shortsActionCandidates = [
+      "ytd-reel-video-renderer[is-active] #actions",
+      "ytd-reel-video-renderer[is-active] #actions-side",
+      "ytd-reel-video-renderer #actions",
+      "ytd-reel-video-renderer #actions-side",
+      "ytd-shorts #actions",
+      "shorts-video #actions",
+      "#shorts-player #actions",
+      "ytd-reel-player-overlay-renderer #actions"
+    ];
+    for (const selector of shortsActionCandidates) {
+      const nodes = Array.from(document.querySelectorAll(selector)).filter(isElementVisible);
+      if (nodes.length) return nodes[0];
+    }
+
+    const overlayHosts = [
+      "ytd-reel-video-renderer[is-active]",
+      "ytd-reel-video-renderer",
+      "#shorts-player",
+      "ytd-shorts",
+      "shorts-video"
+    ];
+    for (const selector of overlayHosts) {
+      const nodes = Array.from(document.querySelectorAll(selector)).filter(isElementVisible);
+      if (nodes.length) return nodes[0];
+    }
+
     return null;
   }
 
@@ -478,7 +553,7 @@
       const blob = new Blob([result.text], { type: "text/plain;charset=utf-8" });
       
       updateToast(toastId, { title: "Downloading transcript", detail: processedItem.filename, tone: "progress", progress: 65 });
-      const downloadResult = await downloader.saveBlobItem(processedItem, blob);
+      const downloadResult = await downloader.saveBlobItem(processedItem, blob, null, { source: "youtube" });
       
       updateToast(toastId, {
         title: "Transcript saved",
@@ -814,6 +889,15 @@
     }
 
     pageMenu.setVisible(true);
+    try {
+      if (isShortsPath(new URL(location.href).pathname)) {
+        // Shorts has no #description watch-rail; keep the bottom page menu visible.
+        pageMenu.setWatchDeferred(false);
+        return;
+      }
+    } catch (error) {
+      // Fall through to watch-page deferral.
+    }
     // Keep the bottom rail out of the way of Thumbnail/Transcript until the user scrolls past #description.
     pageMenu.setWatchDeferred(!hasScrolledPastWatchDescription());
     ensureWatchDescriptionObserver();
@@ -896,6 +980,9 @@
       CARD_ROOT_SELECTOR,
       VIDEO_LINK_SELECTOR,
       "ytd-watch-metadata",
+      "ytd-reel-video-renderer",
+      "ytd-shorts",
+      "shorts-video",
       "ytd-browse",
       "ytd-search",
       "ytd-continuation-item-renderer"
@@ -910,7 +997,36 @@
     settings = await settingsStore.load();
     settingsStore.subscribe((nextSettings) => {
       settings = nextSettings;
+      if (shortcutController) {
+        shortcutController.setEnabled(Boolean(settings && settings.enableKeyboardShortcuts));
+      }
     });
+
+    if (window.IgBulkShortcuts && window.IgBulkShortcuts.createShortcutController) {
+      shortcutController = window.IgBulkShortcuts.createShortcutController({
+        enabled: Boolean(settings && settings.enableKeyboardShortcuts),
+        onSaveCurrent() {
+          downloadCardThumbnail(currentPageCardData(), control);
+        },
+        onToggleSelect() {
+          setSelectionMode(!selectionMode);
+        }
+      });
+    }
+
+    if (chrome.runtime && chrome.runtime.onMessage) {
+      chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+        if (!message || message.type !== (window.IG_BULK_MESSAGES && window.IG_BULK_MESSAGES.UNDO_LAST_BATCH)) return false;
+        const historyApi = window.IgBulkDownloadHistory;
+        if (!historyApi || !historyApi.undoLastBatch) {
+          sendResponse({ ok: false, removed: 0, reason: "Undo is unavailable on this page." });
+          return false;
+        }
+        historyApi.undoLastBatch().then(sendResponse);
+        return true;
+      });
+    }
+
     ensureSelectionDock();
     ensurePageMenu();
     refresh();

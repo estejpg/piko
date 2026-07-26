@@ -3,18 +3,29 @@
     return {
       ...(window.IG_BULK_DEFAULT_SETTINGS || {
         filenamePattern: "{username}_{takenAt}_{id}",
+        filenamePreset: "default",
         showFeedButton: true,
         lastUiMode: "idle",
-        selectedFolderName: ""
+        selectedFolderName: "",
+        showReliabilityToasts: true,
+        enableKeyboardShortcuts: false
       })
     };
   }
 
   function normalize(nextSettings) {
-    return {
+    const merged = {
       ...defaults(),
       ...(nextSettings || {})
     };
+    merged.showFeedButton = Boolean(merged.showFeedButton);
+    merged.showReliabilityToasts = merged.showReliabilityToasts !== false;
+    merged.enableKeyboardShortcuts = Boolean(merged.enableKeyboardShortcuts);
+    merged.filenamePattern = String(merged.filenamePattern || defaults().filenamePattern).trim() || defaults().filenamePattern;
+    merged.filenamePreset = String(merged.filenamePreset || "custom");
+    merged.selectedFolderName = String(merged.selectedFolderName || "");
+    merged.lastUiMode = String(merged.lastUiMode || "idle");
+    return merged;
   }
 
   function storageGet(keys) {

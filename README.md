@@ -8,9 +8,12 @@ Piko is a lightweight Chrome extension for saving Instagram media, YouTube thumb
 - Download visible profile media, profile media, reels, grid items, or thumbnails.
 - Toggle thumbnail mode on profile and Explore grids, then download poster/thumbnail images.
 - Enter Select mode only when needed, preview selected items, and run bulk downloads from the shared bottom menu.
-- Save YouTube thumbnails from watch pages, home, search, subscriptions, channel listings, and recommendations.
+- Save YouTube thumbnails from watch pages, home, search, subscriptions, channel listings, recommendations, and Shorts surfaces.
 - Download clean text transcripts beside YouTube’s native watch-page actions.
-- Keep filename and folder preferences shared across every supported surface.
+- Choose filename presets or a custom pattern, with shared folder preferences across every supported surface.
+- Optional keyboard shortcuts (S saves the current item, A toggles Select mode) and resolution notices for fallback/health toasts.
+- Review recent downloads in the popup, undo the last folder batch, or clear history.
+- Instagram Stories are intentionally not supported (brittle ephemeral surface).
 
 ## Interaction Model
 

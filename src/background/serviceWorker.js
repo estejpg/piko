@@ -1,15 +1,25 @@
+const DEFAULT_SETTINGS = {
+  filenamePattern: "{username}_{takenAt}_{id}",
+  filenamePreset: "default",
+  showFeedButton: true,
+  lastUiMode: "idle",
+  selectedFolderName: "",
+  showReliabilityToasts: true,
+  enableKeyboardShortcuts: false
+};
+
 chrome.runtime.onInstalled.addListener(() => {
   chrome.storage.local.get(["settings"], (data) => {
     if (!data.settings) {
-      chrome.storage.local.set({
-        settings: {
-          filenamePattern: "{username}_{takenAt}_{id}",
-          showFeedButton: true,
-          lastUiMode: "idle",
-          selectedFolderName: ""
-        }
-      });
+      chrome.storage.local.set({ settings: { ...DEFAULT_SETTINGS } });
+      return;
     }
+    chrome.storage.local.set({
+      settings: {
+        ...DEFAULT_SETTINGS,
+        ...data.settings
+      }
+    });
   });
 });
 
@@ -19,10 +29,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   chrome.storage.local.get(["settings"], (data) => {
     sendResponse({
       settings: {
-        filenamePattern: "{username}_{takenAt}_{id}",
-        showFeedButton: true,
-        lastUiMode: "idle",
-        selectedFolderName: "",
+        ...DEFAULT_SETTINGS,
         ...(data.settings || {})
       }
     });

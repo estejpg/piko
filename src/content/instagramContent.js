@@ -14,6 +14,7 @@
   let profileMultiSelect = null;
   let profileMultiSelectKey = "";
   let toastHost = null;
+  let shortcutController = null;
   let activeProfileMode = null;
   let thumbnailMode = false;
   let selectionMode = false;
@@ -132,6 +133,8 @@
     if (feedVisibilityChanged) mountUiForRoute();
     else refreshContextualActions();
 
+    if (shortcutController) shortcutController.setEnabled(settings.enableKeyboardShortcuts);
+
     if (settings.selectedFolderName) setStatus(`Folder: ${settings.selectedFolderName}`);
   }
 
@@ -152,6 +155,15 @@
   function updateToast(id, options) {
     if (!id) return null;
     return getToastHost().update(id, options);
+  }
+
+  function notifyResolutionFailure(detail) {
+    if (!settings.showReliabilityToasts) return null;
+    return showToast({
+      title: "Could not resolve media",
+      detail: detail || "Bridge, GraphQL, and on-page fallbacks returned no media.",
+      tone: "health"
+    });
   }
 
   function setStatus(message) {
@@ -474,14 +486,29 @@
     }
 
     let items = await resolvePostByShortcode(shortcode, { thumbnailOnly });
+    const resolvedPrivately = items.length > 0;
     if (!items.length) items = collectDomMediaWithin(fallbackRoot, { thumbnailOnly });
-    return downloadMediaItems(applyFilenamePattern(items), thumbnailOnly ? `${label || "post"} thumbnails` : label || "post");
+
+    if (!resolvedPrivately && items.length && settings.showReliabilityToasts) {
+      showToast({ title: "Used on-page media fallback", tone: "neutral", timeoutMs: 2400 });
+    }
+
+    const patterned = applyFilenamePattern(items);
+    if (!patterned.length) {
+      notifyResolutionFailure("Bridge, GraphQL, and on-page fallbacks returned no media.");
+      return downloadMediaItems(patterned, thumbnailOnly ? `${label || "post"} thumbnails` : label || "post", null, null, {
+        resolutionExhausted: true
+      });
+    }
+
+    return downloadMediaItems(patterned, thumbnailOnly ? `${label || "post"} thumbnails` : label || "post");
   }
 
-  async function downloadMediaItems(items, label, controls, token) {
+  async function downloadMediaItems(items, label, controls, token, options) {
     if (!items.length) {
       setStatus("No media found");
-      showToast({ title: "No media found", detail: "Could not find downloadable media for this item.", tone: "warning" });
+      const tone = options && options.resolutionExhausted ? "health" : "warning";
+      showToast({ title: "No media found", detail: "Could not find downloadable media for this item.", tone });
       return;
     }
 
@@ -547,6 +574,7 @@
 
       const allItems = [];
       let failed = 0;
+      let notifiedDomFallback = false;
 
       for (let index = 0; index < uniqueShortcodes.length; index += 1) {
         setStatus(`Resolving ${index + 1}/${uniqueShortcodes.length}`);
@@ -558,11 +586,16 @@
         try {
           const shortcode = uniqueShortcodes[index];
           let items = await resolvePostByShortcode(shortcode, { thumbnailOnly });
+          const resolvedPrivately = items.length > 0;
           if (!items.length) {
             const anchor = Array.from(
               document.querySelectorAll('main a[href*="/p/"], main a[href*="/reel/"], main a[href*="/tv/"]')
             ).find((candidate) => resolver.shortcodeFromUrl(candidate.href) === shortcode);
             items = collectDomMediaWithin(anchor, { thumbnailOnly });
+            if (!resolvedPrivately && items.length && !notifiedDomFallback && settings.showReliabilityToasts) {
+              notifiedDomFallback = true;
+              showToast({ title: "Used on-page media fallback", tone: "neutral", timeoutMs: 2400 });
+            }
           }
           if (items.length) allItems.push(...items);
           else failed += 1;
@@ -579,7 +612,7 @@
         updateToast(toastId, {
           title: "No media found",
           detail: "Could not resolve downloadable media for the selected items.",
-          tone: "warning",
+          tone: "health",
           progress: null,
           timeoutMs: 4500
         });
@@ -686,17 +719,23 @@
 
     const maxItems = Math.min(shortcodes.length, 36);
     const allItems = [];
+    let notifiedDomFallback = false;
 
     for (let index = 0; index < maxItems; index += 1) {
       assertModeActive(token);
       setStatus(`Resolving ${index + 1}/${maxItems}`);
       try {
         let mediaItems = await resolvePostByShortcode(shortcodes[index], { thumbnailOnly });
+        const resolvedPrivately = mediaItems.length > 0;
         if (!mediaItems.length) {
           const anchor = Array.from(
             document.querySelectorAll('main a[href*="/p/"], main a[href*="/reel/"], main a[href*="/tv/"]')
           ).find((candidate) => resolver.shortcodeFromUrl(candidate.href) === shortcodes[index]);
           mediaItems = collectDomMediaWithin(anchor, { thumbnailOnly });
+          if (!resolvedPrivately && mediaItems.length && !notifiedDomFallback && settings.showReliabilityToasts) {
+            notifiedDomFallback = true;
+            showToast({ title: "Used on-page media fallback", tone: "neutral", timeoutMs: 2400 });
+          }
         }
         allItems.push(...mediaItems);
       } catch (error) {
@@ -709,7 +748,7 @@
     const uniqueItems = applyFilenamePattern(resolver.dedupeByUrl(allItems));
     if (!uniqueItems.length) {
       setStatus("No downloadable URLs");
-      showToast({ title: "No downloadable URLs", detail: "Could not resolve media URLs for this profile.", tone: "warning" });
+      showToast({ title: "No downloadable URLs", detail: "Could not resolve media URLs for this profile.", tone: "health" });
       return;
     }
 
@@ -733,7 +772,10 @@
             updateToast(toastId, { detail: `${percent}% complete`, progress: percent });
           }
         },
-        token && { signal: token.abortController.signal }
+        {
+          source: "instagram",
+          signal: token && token.abortController.signal
+        }
       );
       assertModeActive(token);
       setStatus("Done");
@@ -763,6 +805,7 @@
       setStatus(`0/${items.length}`);
       if (controls && controls.setProgress) controls.setProgress(`0/${items.length}`);
       const result = await downloader.downloadBulk(items, {
+        source: "instagram",
         isCancelled() {
           return isModeCancelled(token);
         },
@@ -861,6 +904,25 @@
 
   async function init() {
     await loadSettings();
+    shortcutController = window.IgBulkShortcuts.createShortcutController({
+      enabled: settings.enableKeyboardShortcuts,
+      onSaveCurrent: () => downloadCurrentPostOrVisibleMedia(),
+      onToggleSelect: () => {
+        if (supportsGridMultiSelect(route)) toggleSelectionMode();
+      }
+    });
+    if (chrome.runtime && chrome.runtime.onMessage) {
+      chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+        if (!message || message.type !== MSG.UNDO_LAST_BATCH) return false;
+        const historyApi = window.IgBulkDownloadHistory;
+        if (!historyApi || !historyApi.undoLastBatch) {
+          sendResponse({ ok: false, removed: 0, reason: "Undo is unavailable on this page." });
+          return false;
+        }
+        historyApi.undoLastBatch().then(sendResponse);
+        return true;
+      });
+    }
     requestBridge("markMediaIds", {}).catch(() => {});
     mountUiForRoute();
     observePageChanges();
