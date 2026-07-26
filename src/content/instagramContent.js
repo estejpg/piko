@@ -588,8 +588,59 @@
         });
       }
 
+      const patterned = applyFilenamePattern(items);
       const label = all ? "story reel" : "story item";
-      await downloadMediaItems(applyFilenamePattern(items), label);
+
+      // Prefer sequential browser downloads for multi-item Stories when no folder
+      // handle is already granted, so All does not force a directory picker.
+      if (patterned.length > 1) {
+        let hasFolder = false;
+        try {
+          const handle = await downloader.getStoredDirectoryHandle();
+          if (handle && handle.queryPermission) {
+            hasFolder = (await handle.queryPermission({ mode: "readwrite" })) === "granted";
+          } else {
+            hasFolder = Boolean(handle);
+          }
+        } catch (error) {
+          hasFolder = false;
+        }
+
+        if (!hasFolder) {
+          setStatus(`Downloading 0/${patterned.length}`);
+          const toastId = showToast(
+            { title: `Downloading ${label}`, detail: `${patterned.length} item(s)`, tone: "progress", progress: 4 },
+            0
+          );
+          let downloaded = 0;
+          let failed = 0;
+          for (let index = 0; index < patterned.length; index += 1) {
+            try {
+              await downloader.downloadSingle(patterned[index], null, { source: "instagram" });
+              downloaded += 1;
+            } catch (error) {
+              failed += 1;
+            }
+            setStatus(`${downloaded}/${patterned.length}`);
+            updateToast(toastId, {
+              detail: `${downloaded}/${patterned.length} complete`,
+              progress: Math.round(((index + 1) / patterned.length) * 100)
+            });
+            await new Promise((resolve) => setTimeout(resolve, 200));
+          }
+          updateToast(toastId, {
+            title: failed ? "Story reel finished" : "Story reel saved",
+            detail: `${downloaded} saved${failed ? `, ${failed} failed` : ""}`,
+            tone: failed ? "warning" : "success",
+            progress: null,
+            timeoutMs: 4200
+          });
+          setStatus("Done");
+          return;
+        }
+      }
+
+      await downloadMediaItems(patterned, label);
     } finally {
       if (storyActions && storyActions.setBusy) storyActions.setBusy(false);
     }
