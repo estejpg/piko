@@ -110,9 +110,8 @@ html[style*="color-scheme: dark"] {
   stroke-linejoin: round;
 }
 
-.ig-bulk-icon * {
-  vector-effect: non-scaling-stroke;
-}
+/* Let strokes scale with the 16px dock glyphs. non-scaling-stroke made dense
+   icons (especially settings) fill in and read as a circle/squircle blob. */
 
 .ig-bulk-icon.is-spinning {
   animation: piko-spin 800ms linear infinite;

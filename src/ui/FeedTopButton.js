@@ -1,5 +1,6 @@
 (function () {
   function createFeedTopButton(actions) {
+    const dockButton = window.IgBulkIcons.dockButton;
     const root = document.createElement("section");
     root.id = "ig-bulk-feed-button";
     root.className = "ig-bulk-feed ig-bulk-bottom-menu ig-bulk-page-menu";
@@ -13,7 +14,7 @@
     root.innerHTML = [
       '<div class="ig-bulk-bottom-menu__rail" role="toolbar" aria-label="Piko page actions">',
       buttons,
-      '</div>',
+      "</div>",
       '<div class="ig-bulk-bottom-menu__status" data-role="status" aria-live="polite">Ready</div>'
     ].join("");
 
@@ -52,15 +53,6 @@
         }
       }
     };
-  }
-
-  function dockButton(action, ariaLabel, iconName, label) {
-    return [
-      `<button type="button" class="ig-bulk-icon-button" data-action="${action}" data-label="${label}" data-default-title="${ariaLabel}" aria-label="${ariaLabel}" title="${ariaLabel}">`,
-      window.IgBulkIcons.icon(iconName),
-      `<span>${label}</span>`,
-      "</button>"
-    ].join("");
   }
 
   window.IgBulkFeedTopButton = { createFeedTopButton };
