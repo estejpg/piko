@@ -113,20 +113,15 @@
   }
 
   function createPageMenu(actions) {
+    const dockButton = window.IgBulkIcons.dockButton;
     const root = document.createElement("nav");
     root.className = "ig-bulk-youtube-page-menu ig-bulk-bottom-menu ig-bulk-page-menu";
     root.setAttribute("aria-label", "Piko YouTube actions");
     root.innerHTML = [
       '<div class="ig-bulk-bottom-menu__rail" role="toolbar">',
-      '  <button type="button" class="ig-bulk-icon-button" data-action="select" aria-label="Select thumbnails" title="Select thumbnails">',
-      window.IgBulkIcons.icon("select"),
-      '    <span>Select</span>',
-      '  </button>',
-      '  <button type="button" class="ig-bulk-icon-button" data-action="settings" aria-label="Open Piko settings" title="Open Piko settings">',
-      window.IgBulkIcons.icon("settings"),
-      '    <span>Settings</span>',
-      '  </button>',
-      '</div>'
+      dockButton("select", "Select thumbnails", "select", "Select", { pressed: false }),
+      dockButton("settings", "Open Piko settings", "settings", "Settings"),
+      "</div>"
     ].join("");
 
     root.addEventListener("click", (event) => {

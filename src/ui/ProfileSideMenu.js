@@ -1,17 +1,18 @@
 (function () {
   function createProfileSideMenu(actions) {
+    const dockButton = window.IgBulkIcons.dockButton;
     const root = document.createElement("section");
     root.id = "ig-bulk-profile-menu";
     root.className = "ig-bulk-profile-menu ig-bulk-bottom-menu ig-bulk-page-menu";
     root.innerHTML = [
       '<div class="ig-bulk-bottom-menu__rail" role="toolbar" aria-label="Piko profile actions">',
-      dockButton("visible", "Download visible media", "visible", "Visible"),
-      dockButton("profile", "Download profile media", "grid", "Profile"),
-      dockButton("reels", "Download reels", "reel", "Reels"),
-      dockButton("thumbnail", "Toggle thumbnail mode", "thumbnail", "Thumbs"),
-      dockButton("select", "Select profile media", "select", "Select"),
-      dockButton("folder", "Change folder", "folder", "Folder"),
-      '</div>',
+      dockButton("visible", "Download visible media", "visible", "Visible", { pressed: false }),
+      dockButton("profile", "Download profile media", "grid", "Profile", { pressed: false }),
+      dockButton("reels", "Download reels", "reel", "Reels", { pressed: false }),
+      dockButton("thumbnail", "Toggle thumbnail mode", "thumbnail", "Thumbs", { pressed: false }),
+      dockButton("select", "Select profile media", "select", "Select", { pressed: false }),
+      dockButton("folder", "Change folder", "folder", "Folder", { pressed: false }),
+      "</div>",
       '<div class="ig-bulk-bottom-menu__status" data-role="status" aria-live="polite">Ready</div>'
     ].join("");
 
@@ -77,15 +78,6 @@
         }
       }
     };
-  }
-
-  function dockButton(action, ariaLabel, iconName, label) {
-    return [
-      `<button type="button" class="ig-bulk-icon-button" data-action="${action}" data-label="${label}" data-default-title="${ariaLabel}" aria-label="${ariaLabel}" aria-pressed="false" title="${ariaLabel}">`,
-      window.IgBulkIcons.icon(iconName),
-      `<span>${label}</span>`,
-      "</button>"
-    ].join("");
   }
 
   window.IgBulkProfileSideMenu = { createProfileSideMenu };

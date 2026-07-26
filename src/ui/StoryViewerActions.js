@@ -1,13 +1,14 @@
 (function () {
   function createStoryViewerActions(actions) {
+    const dockButton = window.IgBulkIcons.dockButton;
     const root = document.createElement("section");
     root.id = "ig-bulk-story-actions";
     root.className = "ig-bulk-story-actions ig-bulk-bottom-menu ig-bulk-page-menu";
     root.innerHTML = [
       '<div class="ig-bulk-bottom-menu__rail" role="toolbar" aria-label="Piko story actions">',
-      dockButton("current", "Download current story item", "download", "Current"),
-      dockButton("all", "Download all items in this story", "reel", "All"),
-      dockButton("folder", "Change folder", "folder", "Folder"),
+      dockButton("current", "Download current story item", "download", "Current", { persistDefaultTitle: false }),
+      dockButton("all", "Download all items in this story", "reel", "All", { persistDefaultTitle: false }),
+      dockButton("folder", "Change folder", "folder", "Folder", { persistDefaultTitle: false }),
       "</div>",
       '<div class="ig-bulk-bottom-menu__status" data-role="status" aria-live="polite">Ready</div>'
     ].join("");
@@ -38,15 +39,6 @@
         }
       }
     };
-  }
-
-  function dockButton(action, ariaLabel, iconName, label) {
-    return [
-      `<button type="button" class="ig-bulk-icon-button" data-action="${action}" data-label="${label}" aria-label="${ariaLabel}" title="${ariaLabel}">`,
-      window.IgBulkIcons.icon(iconName),
-      `<span>${label}</span>`,
-      "</button>"
-    ].join("");
   }
 
   window.IgBulkStoryViewerActions = { createStoryViewerActions };

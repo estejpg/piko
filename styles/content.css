@@ -104,14 +104,21 @@ html[style*="color-scheme: dark"] {
   width: 16px;
   height: 16px;
   flex: 0 0 auto;
-  fill: none;
-  stroke: currentColor;
+  /* Host pages (esp. Instagram) style raw svg/path fill — lock paint so glyphs
+     stay stroke-only and match the dock Current/download icon everywhere. */
+  fill: none !important;
+  stroke: currentColor !important;
+  stroke-width: 2px;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
 
-.ig-bulk-icon * {
-  vector-effect: non-scaling-stroke;
+.ig-bulk-icon *,
+.ig-bulk-icon path {
+  fill: none !important;
+  stroke: currentColor !important;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .ig-bulk-icon.is-spinning {
@@ -310,12 +317,23 @@ html[style*="color-scheme: dark"] {
   padding: 0;
   border: 1px solid rgba(0, 0, 0, 0.08);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.92);
-  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.12);
+  /* Keep the button chrome slightly soft via background alpha — never opacity on
+     the whole control. Element opacity let Instagram's Reel/Clip corner badge
+     (a squircle) show through and look like part of the Save glyph. */
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.14);
   color: #111;
-  opacity: 0.84;
+  opacity: 1;
   pointer-events: auto;
   transform: translateY(0);
+}
+
+/* Cover Instagram media-type badges that share the top-right corner. */
+.ig-bulk-tile:has(> .ig-bulk-tile-download) > div:has(svg[aria-label="Reel"]),
+.ig-bulk-tile:has(> .ig-bulk-tile-download) > div:has(svg[aria-label="Clip"]),
+.ig-bulk-tile:has(> .ig-bulk-tile-download) > div:has(svg[aria-label="Carousel"]) {
+  opacity: 0 !important;
+  pointer-events: none !important;
 }
 
 .ig-bulk-tile-download span {
@@ -595,16 +613,14 @@ html[style*="color-scheme: dark"] {
   display: flex;
   align-items: center;
   gap: 5px;
-  opacity: 0.88;
+  /* Avoid element opacity so underlying YouTube chrome cannot bleed through. */
+  opacity: 1;
   pointer-events: auto;
-  transition:
-    opacity var(--piko-fast) ease,
-    transform var(--piko-fast) var(--piko-ease);
+  transition: transform var(--piko-fast) var(--piko-ease);
 }
 
 .ig-bulk-youtube-card-controls:hover,
 .ig-bulk-youtube-card-controls:focus-within {
-  opacity: 1;
   transform: translateY(-1px);
 }
 
@@ -617,9 +633,14 @@ html[style*="color-scheme: dark"] {
   padding: 0;
   border: 1px solid rgba(0, 0, 0, 0.08);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.94);
+  background: rgba(255, 255, 255, 0.9);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.14);
   color: #111;
+}
+
+.ig-bulk-youtube-card-controls:hover .ig-bulk-youtube-card-button,
+.ig-bulk-youtube-card-controls:focus-within .ig-bulk-youtube-card-button {
+  background: rgba(255, 255, 255, 0.96);
 }
 
 .ig-bulk-youtube-card-button > span:not([aria-hidden]) {

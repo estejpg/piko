@@ -221,6 +221,21 @@
       timelineActions = null;
     }
 
+    // Defense-in-depth for Explore/profile grids: purge any leftover timeline Saves that
+    // may have survived a SPA navigation before destroy() ran.
+    if (!supportsPostActions(route)) {
+      document.querySelectorAll(".ig-bulk-timeline-download").forEach((button) => {
+        const container = button.closest(".ig-bulk-timeline-media") || button.parentElement;
+        button.remove();
+        if (container) {
+          container.classList.remove("ig-bulk-timeline-media");
+          if (!container.querySelector(".ig-bulk-tile-download, .ig-bulk-tile-select")) {
+            container.classList.remove("ig-bulk-tile");
+          }
+        }
+      });
+    }
+
     if (profileHoverButtons && !supportsGridTileActions(route)) {
       profileHoverButtons.destroy();
       profileHoverButtons = null;
@@ -351,7 +366,7 @@
   function clearProfileTemporaryUi() {
     if (profileMultiSelect && profileMultiSelect.clearSelection) profileMultiSelect.clearSelection();
     document.querySelectorAll(".ig-bulk-tile--selected").forEach((node) => node.classList.remove("ig-bulk-tile--selected"));
-    document.querySelectorAll(".ig-bulk-tile-download.is-loading, .ig-bulk-inline-download.is-loading").forEach((node) => {
+    document.querySelectorAll(".ig-bulk-tile-download.is-loading").forEach((node) => {
       node.classList.remove("is-loading");
       node.disabled = false;
       node.setAttribute("aria-disabled", "false");
