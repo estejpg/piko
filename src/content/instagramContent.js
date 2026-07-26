@@ -221,6 +221,21 @@
       timelineActions = null;
     }
 
+    // Defense-in-depth for Explore/profile grids: purge any leftover timeline Saves that
+    // may have survived a SPA navigation before destroy() ran.
+    if (!supportsPostActions(route)) {
+      document.querySelectorAll(".ig-bulk-timeline-download").forEach((button) => {
+        const container = button.closest(".ig-bulk-timeline-media") || button.parentElement;
+        button.remove();
+        if (container) {
+          container.classList.remove("ig-bulk-timeline-media");
+          if (!container.querySelector(".ig-bulk-tile-download, .ig-bulk-tile-select")) {
+            container.classList.remove("ig-bulk-tile");
+          }
+        }
+      });
+    }
+
     if (profileHoverButtons && !supportsGridTileActions(route)) {
       profileHoverButtons.destroy();
       profileHoverButtons = null;

@@ -24,7 +24,19 @@
       if (!anchor || anchor.querySelector(".ig-bulk-tile-download")) return false;
       if (anchor.closest('[role="dialog"], [aria-modal="true"]')) return false;
       if (!window.IgBulkMediaResolver.shortcodeFromUrl(anchor.href)) return false;
-      return Boolean(anchor.querySelector("img, video"));
+      if (!anchor.querySelector("img, video")) return false;
+
+      // Explore/profile grids sometimes nest post/reel links. Keep one Save per tile:
+      // decorate the innermost media-bearing link, and skip wrappers that contain another.
+      if (anchor.querySelector('a[href*="/p/"], a[href*="/reel/"], a[href*="/tv/"]')) return false;
+
+      // Also skip if an ancestor post/reel link already owns a Save button.
+      const ancestorLink =
+        anchor.parentElement &&
+        anchor.parentElement.closest('a[href*="/p/"], a[href*="/reel/"], a[href*="/tv/"]');
+      if (ancestorLink && ancestorLink.querySelector(".ig-bulk-tile-download")) return false;
+
+      return true;
     }
 
     function injectAnchor(anchor) {

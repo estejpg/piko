@@ -183,6 +183,15 @@
       if (decorated.has(container) && container.querySelector(".ig-bulk-timeline-download")) return;
       if (container.querySelector(".ig-bulk-timeline-download")) return;
 
+      // Grid tiles (Explore/profile) are owned by ProfileHoverButtons. Never stack a
+      // second Save on a container or post link that already has a tile download control.
+      if (
+        container.querySelector(".ig-bulk-tile-download") ||
+        article.querySelector("a.ig-bulk-tile > .ig-bulk-tile-download, a[href*='/p/'] > .ig-bulk-tile-download, a[href*='/reel/'] > .ig-bulk-tile-download")
+      ) {
+        return;
+      }
+
       container.classList.add("ig-bulk-tile", "ig-bulk-timeline-media");
       const button = createButton(article, options.onDownloadArticle);
       button.classList.add("ig-bulk-timeline-download--overlay");
