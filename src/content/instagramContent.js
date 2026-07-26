@@ -366,7 +366,7 @@
   function clearProfileTemporaryUi() {
     if (profileMultiSelect && profileMultiSelect.clearSelection) profileMultiSelect.clearSelection();
     document.querySelectorAll(".ig-bulk-tile--selected").forEach((node) => node.classList.remove("ig-bulk-tile--selected"));
-    document.querySelectorAll(".ig-bulk-tile-download.is-loading, .ig-bulk-inline-download.is-loading").forEach((node) => {
+    document.querySelectorAll(".ig-bulk-tile-download.is-loading").forEach((node) => {
       node.classList.remove("is-loading");
       node.disabled = false;
       node.setAttribute("aria-disabled", "false");

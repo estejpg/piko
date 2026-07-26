@@ -1,6 +1,7 @@
 (function () {
   // Shared stroke attrs keep every glyph optically matched at the dock's 16px size.
-  const S = 'stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"';
+  // fill="none" is also set in CSS with !important so host-page svg rules cannot ink-fill glyphs.
+  const S = 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"';
 
   // Marquee corners used by both Select and Thumbnail so those actions stay visually related.
   const MARQUEE =
