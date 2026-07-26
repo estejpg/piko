@@ -3,7 +3,7 @@
   "name": "Piko",
   "short_name": "Piko",
   "description": "Contextual Instagram media, YouTube thumbnail, transcript, selection, and batch download tools.",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "icons": {
     "16": "icons/16-piko-browser-logo.png",
     "32": "icons/32-piko-browser-logo.png",
@@ -59,6 +59,7 @@
         "src/ui/TimelinePostActions.js",
         "src/ui/ProfileHoverButtons.js",
         "src/ui/ProfileMultiSelect.js",
+        "src/ui/StoryViewerActions.js",
         "src/content/instagramContent.js"
       ],
       "css": ["styles/content.css"],

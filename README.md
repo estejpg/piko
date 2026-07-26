@@ -13,7 +13,7 @@ Piko is a lightweight Chrome extension for saving Instagram media, YouTube thumb
 - Choose filename presets or a custom pattern, with shared folder preferences across every supported surface.
 - Optional keyboard shortcuts (S saves the current item, A toggles Select mode) and resolution notices for fallback/health toasts.
 - Review recent downloads in the popup, undo the last folder batch, or clear history.
-- Instagram Stories are intentionally not supported (brittle ephemeral surface).
+- Download Instagram Stories from the open story viewer (current item or full reel), with DOM fallback when internals are unavailable.
 
 ## Interaction Model
 
@@ -28,6 +28,7 @@ Piko is on-page first. The extension popup reports page status and links to sett
 - The feed uses a smaller page menu for the current item, folder, and settings.
 - Select mode temporarily replaces the page menu with previews, a count, Download, Clear, progress, and completion state.
 - High-quality private resolution remains the first choice. When Instagram’s internals do not return media, Piko falls back to media already present in the relevant DOM surface.
+- Story viewers expose a compact bottom menu for the current story item, the full reel, and folder access.
 
 ### YouTube
 

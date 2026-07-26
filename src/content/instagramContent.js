@@ -9,6 +9,7 @@
   let route = classifyRoute(location.pathname);
   let profileMenu = null;
   let feedButton = null;
+  let storyActions = null;
   let timelineActions = null;
   let profileHoverButtons = null;
   let profileMultiSelect = null;
@@ -29,7 +30,12 @@
 
   function classifyRoute(pathname) {
     if (!pathname || pathname === "/") return { type: "feed" };
-    if (/^\/(?:stories|direct|accounts|challenge|oauth)\b/.test(pathname)) return { type: "excluded" };
+    if (/^\/(?:direct|accounts|challenge|oauth)\b/.test(pathname)) return { type: "excluded" };
+
+    const storyRoute = resolver.parseStoryRoute ? resolver.parseStoryRoute(pathname) : null;
+    if (storyRoute) return storyRoute;
+
+    if (/^\/stories\b/.test(pathname)) return { type: "excluded" };
     if (/^\/reels\/?$/.test(pathname)) return { type: "feed" };
     if (/^\/explore\b/.test(pathname)) return { type: "explore" };
 
@@ -46,6 +52,10 @@
     }
 
     return { type: "other" };
+  }
+
+  function isStoryRoute(currentRoute) {
+    return Boolean(currentRoute && currentRoute.type === "story");
   }
 
   function isProfileRoute(currentRoute) {
@@ -81,12 +91,13 @@
 
   function requestBridge(kind, payload) {
     const requestId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const timeoutMs = kind === "storyReelMedia" ? 10000 : 5000;
 
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
         window.removeEventListener("message", onMessage);
         reject(new Error("Instagram page bridge timed out."));
-      }, 5000);
+      }, timeoutMs);
 
       function onMessage(event) {
         if (event.source !== window || event.origin !== location.origin) return;
@@ -169,6 +180,7 @@
   function setStatus(message) {
     if (profileMenu) profileMenu.setStatus(message);
     if (feedButton) feedButton.setStatus(message);
+    if (storyActions) storyActions.setStatus(message);
   }
 
   function applyFilenamePattern(items) {
@@ -180,6 +192,11 @@
       cancelProfileMode("route-change");
       profileMenu.element.remove();
       profileMenu = null;
+    }
+
+    if (storyActions && !isStoryRoute(route)) {
+      storyActions.element.remove();
+      storyActions = null;
     }
 
     if (feedButton && !shouldShowPageMenu(route)) {
@@ -249,6 +266,15 @@
       document.body.appendChild(feedButton.element);
       if (feedButton.setSelectionMode) feedButton.setSelectionMode(selectionMode);
       if (feedButton.setThumbnailMode) feedButton.setThumbnailMode(thumbnailMode);
+    }
+
+    if (isStoryRoute(route) && !storyActions && window.IgBulkStoryViewerActions) {
+      storyActions = window.IgBulkStoryViewerActions.createStoryViewerActions({
+        current: () => downloadStoryMedia({ all: false }),
+        all: () => downloadStoryMedia({ all: true }),
+        folder: () => chooseFolder()
+      });
+      document.body.appendChild(storyActions.element);
     }
 
     if (supportsPostActions(route) && !timelineActions) {
@@ -502,6 +528,122 @@
     }
 
     return downloadMediaItems(patterned, thumbnailOnly ? `${label || "post"} thumbnails` : label || "post");
+  }
+
+  async function resolveStoryReel(options) {
+    const current = isStoryRoute(route) ? route : resolver.parseStoryRoute(location.pathname);
+    if (!current) throw new Error("Open a story to download it.");
+
+    try {
+      return await requestBridge("storyReelMedia", {
+        username: current.username,
+        highlightId: current.highlightId,
+        mediaId: current.mediaId,
+        all: Boolean(options && options.all)
+      });
+    } catch (error) {
+      return null;
+    }
+  }
+
+  async function downloadStoryMedia(options) {
+    const all = Boolean(options && options.all);
+    const current = isStoryRoute(route) ? route : resolver.parseStoryRoute(location.pathname);
+    if (!current) {
+      notifyResolutionFailure("Open a story viewer to download Stories.");
+      return;
+    }
+
+    if (storyActions && storyActions.setBusy) storyActions.setBusy(true);
+    setStatus(all ? "Resolving story reel..." : "Resolving story...");
+
+    try {
+      let items = [];
+      let usedDomFallback = false;
+      const payload = await resolveStoryReel({ all });
+      if (payload) {
+        items = resolver.normalizeStoryItems(payload, {
+          mediaId: current.mediaId,
+          onlyCurrent: !all
+        });
+      }
+
+      if (!items.length) {
+        items = resolver.collectVisibleStoryDomMedia(current.username);
+        usedDomFallback = Boolean(items.length);
+      }
+
+      if (!items.length) {
+        notifyResolutionFailure("Story API and on-page fallbacks returned no media.");
+        setStatus("No story media");
+        return;
+      }
+
+      if (usedDomFallback && settings.showReliabilityToasts) {
+        showToast({
+          title: "Used on-page media fallback",
+          detail: "Story internals were unavailable for this item.",
+          tone: "neutral",
+          timeoutMs: 2400
+        });
+      }
+
+      const patterned = applyFilenamePattern(items);
+      const label = all ? "story reel" : "story item";
+
+      // Prefer sequential browser downloads for multi-item Stories when no folder
+      // handle is already granted, so All does not force a directory picker.
+      if (patterned.length > 1) {
+        let hasFolder = false;
+        try {
+          const handle = await downloader.getStoredDirectoryHandle();
+          if (handle && handle.queryPermission) {
+            hasFolder = (await handle.queryPermission({ mode: "readwrite" })) === "granted";
+          } else {
+            hasFolder = Boolean(handle);
+          }
+        } catch (error) {
+          hasFolder = false;
+        }
+
+        if (!hasFolder) {
+          setStatus(`Downloading 0/${patterned.length}`);
+          const toastId = showToast(
+            { title: `Downloading ${label}`, detail: `${patterned.length} item(s)`, tone: "progress", progress: 4 },
+            0
+          );
+          let downloaded = 0;
+          let failed = 0;
+          for (let index = 0; index < patterned.length; index += 1) {
+            try {
+              await downloader.downloadSingle(patterned[index], null, { source: "instagram" });
+              downloaded += 1;
+            } catch (error) {
+              failed += 1;
+            }
+            setStatus(`${downloaded}/${patterned.length}`);
+            updateToast(toastId, {
+              detail: `${downloaded}/${patterned.length} complete`,
+              progress: Math.round(((index + 1) / patterned.length) * 100)
+            });
+            await new Promise((resolve) => setTimeout(resolve, 200));
+          }
+          updateToast(toastId, {
+            title: failed ? "Story reel finished" : "Story reel saved",
+            detail: `${downloaded} saved${failed ? `, ${failed} failed` : ""}`,
+            tone: failed ? "warning" : "success",
+            progress: null,
+            timeoutMs: 4200
+          });
+          setStatus("Done");
+          return;
+        }
+      }
+
+      await downloadMediaItems(patterned, label);
+    } finally {
+      if (storyActions && storyActions.setBusy) storyActions.setBusy(false);
+    }
   }
 
   async function downloadMediaItems(items, label, controls, token, options) {
@@ -906,7 +1048,10 @@
     await loadSettings();
     shortcutController = window.IgBulkShortcuts.createShortcutController({
       enabled: settings.enableKeyboardShortcuts,
-      onSaveCurrent: () => downloadCurrentPostOrVisibleMedia(),
+      onSaveCurrent: () => {
+        if (isStoryRoute(route)) downloadStoryMedia({ all: false });
+        else downloadCurrentPostOrVisibleMedia();
+      },
       onToggleSelect: () => {
         if (supportsGridMultiSelect(route)) toggleSelectionMode();
       }

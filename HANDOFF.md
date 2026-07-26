@@ -143,6 +143,8 @@ Keep manifest-listed file paths relative to the repo root.
   - Timeline and modal media hover download overlays.
 - `src/ui/FeedTopButton.js`
   - Compact bottom page menu for current-post, Select where supported, folder, and settings actions.
+- `src/ui/StoryViewerActions.js`
+  - Compact bottom menu on `/stories/...` for current item, full reel, and folder.
 
 ### YouTube Flow
 
@@ -218,7 +220,7 @@ Internal class names still use the historical `ig-bulk-*` namespace. That is imp
 - Settings:
   - Folder/name/settings should flow through `settingsStore`.
   - Do not create surface-specific settings caches that can drift.
-- Instagram Stories remain intentionally unsupported (brittle ephemeral surface).
+- Instagram Stories are supported in the open story viewer via `PolarisInstapi` (`reels_tray` + `reels_media`) with DOM fallback for the current slide. Highlights use `highlight:{id}` reel ids.
 
 ## Known Caveats
 
