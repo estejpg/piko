@@ -109,24 +109,51 @@
     return { directoryName: directory.name, filename };
   }
 
+  function recordHistory(entries, meta) {
+    if (!window.IgBulkDownloadHistory || !window.IgBulkDownloadHistory.record) return;
+    try {
+      window.IgBulkDownloadHistory.record(entries, meta);
+    } catch (error) {
+      // History is best-effort and must never break downloads.
+    }
+  }
+
   async function downloadSingle(item, onProgress, options) {
     const directory = await getPermittedStoredDirectory();
     const blob = await fetchBlob(item.url, onProgress, options && options.signal);
-    return saveBlobItem(item, blob, directory);
+    return saveBlobItem(item, blob, directory, options);
   }
 
-  async function saveBlobItem(item, blob, directory) {
+  async function saveBlobItem(item, blob, directory, options) {
     directory = directory || (await getPermittedStoredDirectory());
+    let result = null;
     if (directory) {
       try {
-        return await saveBlobToDirectory(blob, item.filename, directory);
+        result = await saveBlobToDirectory(blob, item.filename, directory);
       } catch (error) {
         // Fall back to Chrome's normal download flow if the saved handle is stale.
       }
     }
 
-    saveBlobWithAnchor(blob, item.filename);
-    return { directoryName: "", filename: item.filename };
+    if (!result) {
+      saveBlobWithAnchor(blob, item.filename);
+      result = { directoryName: "", filename: item.filename };
+    }
+
+    if (!(options && options.skipHistory)) {
+      recordHistory(
+        {
+          filename: result.filename,
+          directoryName: result.directoryName,
+          mediaType: item && item.mediaType,
+          source: (options && options.source) || (item && item.source) || "piko",
+          canUndo: Boolean(result.directoryName)
+        },
+        { directoryName: result.directoryName, source: (options && options.source) || "piko" }
+      );
+    }
+
+    return result;
   }
 
   async function chooseBulkDirectory() {
@@ -172,6 +199,7 @@
     let downloaded = 0;
     let skipped = 0;
     let failed = 0;
+    const savedEntries = [];
 
     for (let index = 0; index < items.length; index += 1) {
       if (callbacks && callbacks.isCancelled && callbacks.isCancelled()) break;
@@ -195,6 +223,13 @@
           await writable.write(blob);
           await writable.close();
           downloaded += 1;
+          savedEntries.push({
+            filename: item.filename,
+            directoryName: directory.name,
+            mediaType: item.mediaType,
+            source: (callbacks && callbacks.source) || "instagram",
+            canUndo: true
+          });
         }
       } catch (error) {
         failed += 1;
@@ -202,6 +237,13 @@
       }
       callbacks && callbacks.onBatchProgress && callbacks.onBatchProgress({ downloaded, skipped, failed, completed: index + 1, total: items.length });
       await new Promise((resolve) => setTimeout(resolve, 250));
+    }
+
+    if (savedEntries.length) {
+      recordHistory(savedEntries, {
+        directoryName: directory.name,
+        source: (callbacks && callbacks.source) || "instagram"
+      });
     }
 
     return { downloaded, skipped, failed, total: items.length, directoryName: directory.name };
@@ -217,3 +259,4 @@
     saveBlobItem
   };
 })();
+

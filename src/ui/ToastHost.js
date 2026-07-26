@@ -31,7 +31,14 @@
     const visibleClass = element.classList.contains("is-visible") ? " is-visible" : "";
     element.className = `ig-bulk-toast ig-bulk-toast--${tone}${visibleClass}`;
 
-    const iconName = tone === "success" ? "check" : tone === "error" || tone === "warning" ? "clear" : tone === "progress" ? "spinner" : "download";
+    const iconName =
+      tone === "success"
+        ? "check"
+        : tone === "error" || tone === "warning" || tone === "health"
+          ? "clear"
+          : tone === "progress"
+            ? "spinner"
+            : "download";
     const icon = element.querySelector(".ig-bulk-toast__icon");
     const title = element.querySelector(".ig-bulk-toast__title");
     const detail = element.querySelector(".ig-bulk-toast__detail");

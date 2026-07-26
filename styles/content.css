@@ -721,6 +721,10 @@ html[style*="color-scheme: dark"] {
   color: var(--piko-error);
 }
 
+.ig-bulk-toast--health .ig-bulk-toast__icon {
+  color: var(--piko-warning);
+}
+
 .ig-bulk-toast__body {
   display: grid;
   min-width: 0;

@@ -99,13 +99,19 @@ Keep manifest-listed file paths relative to the repo root.
 
 - `src/shared/messages.js`
   - Defines the message/event vocabulary used by the Instagram isolated content script and main-world bridge.
+  - Also hosts `IG_BULK_FILENAME_PRESETS` and `IG_BULK_DEFAULT_SETTINGS`.
 - `src/shared/settingsStore.js`
   - Central settings load, normalize, patch, and subscribe helper.
   - Uses `chrome.storage.local`.
   - This should remain the single source of truth for settings.
+  - Current fields include `filenamePattern`, `filenamePreset`, `showFeedButton`, `selectedFolderName`, `lastUiMode`, `showReliabilityToasts`, and `enableKeyboardShortcuts`.
 - `src/shared/filename.js`
   - Shared filename sanitization and pattern application.
   - Supports placeholders such as `{username}`, `{takenAt}`, `{id}`, `{type}`, and `{index}`.
+- `src/shared/downloadHistory.js`
+  - Records recent downloads, exposes list/clear/getLastBatch, and supports undoing the last folder batch via the downloader directory handle.
+- `src/shared/shortcuts.js`
+  - Optional page keyboard shortcuts (S save current, A toggle Select), ignored while typing.
 
 ### Download Flow
 
@@ -162,8 +168,16 @@ Keep manifest-listed file paths relative to the repo root.
 - `styles/popup.css`
   - Reports whether the active page is supported.
   - Shows the remembered folder.
+  - Lists recent downloads with undo-last-batch and clear-history actions.
   - Opens settings, Instagram, or YouTube.
   - Remains secondary to the on-page experience.
+
+### Smoke Scripts
+
+- `scripts/smoke.mjs`
+  - Manifest path checks plus filename preset/`applyPattern` smoke coverage via `node:vm`.
+- `scripts/smoke-history.mjs`
+  - Download-history record/list/getLastBatch roundtrip against a mocked `chrome.storage.local`.
 
 ### UI System
 
@@ -204,6 +218,7 @@ Internal class names still use the historical `ig-bulk-*` namespace. That is imp
 - Settings:
   - Folder/name/settings should flow through `settingsStore`.
   - Do not create surface-specific settings caches that can drift.
+- Instagram Stories remain intentionally unsupported (brittle ephemeral surface).
 
 ## Known Caveats
 
@@ -242,7 +257,7 @@ Internal class names still use the historical `ig-bulk-*` namespace. That is imp
    - homepage card thumbnail download/select
    - recommended/sidebar thumbnail download/select
    - selected-thumbnail dock preview and batch download
-4. Add lightweight automated smoke tests if a build/test setup is introduced later.
+4. Run `node scripts/smoke.mjs` and `node scripts/smoke-history.mjs` after shared-module changes.
 5. Consider adding extension icons/assets before Chrome Web Store packaging.
 
 ## Git Notes

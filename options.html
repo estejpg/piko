@@ -17,12 +17,12 @@
       </header>
 
       <section class="settings-list" aria-label="Piko settings">
-        <label class="setting-row">
+        <label class="setting-row setting-row--stacked">
           <span>
-            <strong>Instagram page menu</strong>
-            <small>Show Piko’s compact bottom menu in the Instagram feed.</small>
+            <strong>Filename preset</strong>
+            <small>Choose a ready-made pattern or switch to custom.</small>
           </span>
-          <input id="showFeedButton" type="checkbox">
+          <select id="filenamePreset"></select>
         </label>
 
         <label class="setting-row setting-row--stacked">
@@ -31,6 +31,30 @@
             <small>Use {username}, {takenAt}, {id}, {type}, and {index}.</small>
           </span>
           <input id="filenamePattern" type="text" spellcheck="false">
+        </label>
+
+        <label class="setting-row">
+          <span>
+            <strong>Resolution notices</strong>
+            <small>Show brief toasts when media resolution falls back or health checks report an issue.</small>
+          </span>
+          <input id="showReliabilityToasts" type="checkbox">
+        </label>
+
+        <label class="setting-row">
+          <span>
+            <strong>Keyboard shortcuts</strong>
+            <small>When enabled: S saves current item, A toggles Select mode. Ignored while typing.</small>
+          </span>
+          <input id="enableKeyboardShortcuts" type="checkbox">
+        </label>
+
+        <label class="setting-row">
+          <span>
+            <strong>Instagram page menu</strong>
+            <small>Show Piko’s compact bottom menu in the Instagram feed.</small>
+          </span>
+          <input id="showFeedButton" type="checkbox">
         </label>
 
         <div class="setting-row" aria-labelledby="selectedFolderLabel">

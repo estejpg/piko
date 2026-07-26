@@ -35,6 +35,18 @@
         </div>
       </dl>
 
+      <section class="history" aria-label="Recent downloads">
+        <div class="history__header">
+          <strong>Recent downloads</strong>
+          <div class="history__actions">
+            <button type="button" data-action="undo">Undo last batch</button>
+            <button type="button" data-action="clear-history">Clear history</button>
+          </div>
+        </div>
+        <ul class="history__list" data-role="history-list"></ul>
+        <p class="history__status" data-role="history-status" aria-live="polite"></p>
+      </section>
+
       <nav class="popup__actions" aria-label="Piko shortcuts">
         <button type="button" data-action="settings">
           <span>Settings</span>
@@ -53,6 +65,8 @@
 
     <script src="src/shared/messages.js"></script>
     <script src="src/shared/settingsStore.js"></script>
+    <script src="src/shared/downloadHistory.js"></script>
+    <script src="src/downloads/downloader.js"></script>
     <script src="src/popup/popup.js"></script>
   </body>
 </html>
