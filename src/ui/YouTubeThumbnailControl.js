@@ -162,7 +162,7 @@
           clearTimeout(root.__igBulkRevealTimer);
           root.__igBulkRevealTimer = setTimeout(() => {
             root.classList.remove("is-watch-revealing");
-          }, 450);
+          }, 500);
         } else if (nextDeferred) {
           root.classList.remove("is-watch-revealing");
           clearTimeout(root.__igBulkRevealTimer);
