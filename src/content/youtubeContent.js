@@ -848,27 +848,21 @@
   }
 
   function hasScrolledPastWatchDescription() {
-    // Prefer the watch action controls: keep the bottom rail hidden while Thumbnail/Transcript
-    // are still on-screen, then reveal it after they leave the upper viewport.
+    // Keep the bottom rail hidden while Thumbnail/Transcript remain in the upper band,
+    // then reveal it (with animation) once those controls leave that band.
     const actions = document.querySelector("#ig-bulk-youtube-control");
     if (actions && isMeasurableElement(actions)) {
-      if (actions.getBoundingClientRect().bottom >= 88) return false;
+      return actions.getBoundingClientRect().bottom < 88;
     }
 
     const description = findWatchDescription();
     if (description) {
-      const rect = description.getBoundingClientRect();
-      // Past the description once its top has cleared the sticky header band.
-      return rect.top < 88;
+      return description.getBoundingClientRect().top < 88;
     }
 
     const metadata = Array.from(document.querySelectorAll("ytd-watch-metadata")).find(isMeasurableElement);
     if (metadata) {
       return metadata.getBoundingClientRect().bottom < 88;
-    }
-
-    if (actions && isMeasurableElement(actions)) {
-      return actions.getBoundingClientRect().bottom < 88;
     }
 
     const scrollTop =

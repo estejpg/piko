@@ -275,19 +275,19 @@ html[style*="color-scheme: dark"] {
   opacity: 1;
   transform: translateX(-50%) translateY(0) scale(1);
   transition:
-    opacity 340ms var(--piko-ease),
-    transform 420ms var(--piko-ease);
+    opacity 380ms var(--piko-ease),
+    transform 480ms var(--piko-ease);
 }
 
-/* Watch pages keep the bottom rail hidden until the user scrolls past #description. */
+/* Watch pages keep the bottom rail hidden until Thumbnail/Transcript leave the upper band. */
 .ig-bulk-youtube-page-menu.is-route-visible.is-watch-deferred {
   opacity: 0;
   pointer-events: none;
-  transform: translateX(-50%) translateY(16px) scale(0.96);
+  transform: translateX(-50%) translateY(22px) scale(0.94);
 }
 
 .ig-bulk-youtube-page-menu.is-route-visible.is-watch-revealing {
-  animation: piko-watch-rail-enter 420ms var(--piko-ease) both;
+  animation: piko-watch-rail-enter 480ms var(--piko-ease) both;
 }
 
 .ig-bulk-tile,
