@@ -810,11 +810,15 @@ html[style*="color-scheme: dark"] {
 }
 
 @keyframes piko-watch-rail-enter {
-  from {
+  0% {
     opacity: 0;
-    transform: translateX(-50%) translateY(18px) scale(0.94);
+    transform: translateX(-50%) translateY(24px) scale(0.92);
   }
-  to {
+  60% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(-2px) scale(1.01);
+  }
+  100% {
     opacity: 1;
     transform: translateX(-50%) translateY(0) scale(1);
   }
