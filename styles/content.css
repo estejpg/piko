@@ -266,17 +266,28 @@ html[style*="color-scheme: dark"] {
 
 .ig-bulk-youtube-page-menu {
   display: none;
+  /* Scroll reveal owns the motion; skip the one-shot mount enter animation. */
+  animation: none;
 }
 
 .ig-bulk-youtube-page-menu.is-route-visible {
   display: flex;
+  opacity: 1;
+  transform: translateX(-50%) translateY(0) scale(1);
+  transition:
+    opacity 340ms var(--piko-ease),
+    transform 420ms var(--piko-ease);
 }
 
 /* Watch pages keep the bottom rail hidden until the user scrolls past #description. */
 .ig-bulk-youtube-page-menu.is-route-visible.is-watch-deferred {
   opacity: 0;
   pointer-events: none;
-  transform: translateX(-50%) translateY(8px) scale(0.985);
+  transform: translateX(-50%) translateY(16px) scale(0.96);
+}
+
+.ig-bulk-youtube-page-menu.is-route-visible.is-watch-revealing {
+  animation: piko-watch-rail-enter 420ms var(--piko-ease) both;
 }
 
 .ig-bulk-tile,
@@ -798,6 +809,17 @@ html[style*="color-scheme: dark"] {
   }
 }
 
+@keyframes piko-watch-rail-enter {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(18px) scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1);
+  }
+}
+
 @media (max-width: 680px) {
   .ig-bulk-bottom-menu {
     bottom: max(10px, env(safe-area-inset-bottom));
@@ -865,6 +887,7 @@ html[style*="color-scheme: dark"] {
   .ig-bulk-icon-button,
   .ig-bulk-tile-download,
   .ig-bulk-youtube-card-controls,
+  .ig-bulk-youtube-page-menu,
   .ig-bulk-toast__progress span {
     animation: none !important;
     transition-duration: 1ms !important;

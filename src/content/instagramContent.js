@@ -86,7 +86,9 @@
   }
 
   function supportsPostActions(currentRoute) {
-    return currentRoute.type === "feed" || currentRoute.type === "post" || currentRoute.type === "explore";
+    // Explore grids are owned by ProfileHoverButtons; timeline overlays are for feed/post/modals.
+    // Opening a post from Explore typically navigates to /p|reel/, which enables timeline there.
+    return currentRoute.type === "feed" || currentRoute.type === "post";
   }
 
   function requestBridge(kind, payload) {
