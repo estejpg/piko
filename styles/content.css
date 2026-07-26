@@ -625,15 +625,6 @@ html[style*="color-scheme: dark"] {
 }
 
 .ig-bulk-youtube-card-button {
-  background: rgba(255, 255, 255, 0.9);
-}
-
-.ig-bulk-youtube-card-controls:hover .ig-bulk-youtube-card-button,
-.ig-bulk-youtube-card-controls:focus-within .ig-bulk-youtube-card-button {
-  background: rgba(255, 255, 255, 0.96);
-}
-
-.ig-bulk-youtube-card-button {
   position: relative;
   display: grid;
   place-items: center;
@@ -642,9 +633,14 @@ html[style*="color-scheme: dark"] {
   padding: 0;
   border: 1px solid rgba(0, 0, 0, 0.08);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.94);
+  background: rgba(255, 255, 255, 0.9);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.14);
   color: #111;
+}
+
+.ig-bulk-youtube-card-controls:hover .ig-bulk-youtube-card-button,
+.ig-bulk-youtube-card-controls:focus-within .ig-bulk-youtube-card-button {
+  background: rgba(255, 255, 255, 0.96);
 }
 
 .ig-bulk-youtube-card-button > span:not([aria-hidden]) {
