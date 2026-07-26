@@ -149,7 +149,24 @@
         root.classList.toggle("is-route-visible", Boolean(visible));
       },
       setWatchDeferred(deferred) {
-        root.classList.toggle("is-watch-deferred", Boolean(deferred));
+        const nextDeferred = Boolean(deferred);
+        const wasDeferred = root.classList.contains("is-watch-deferred");
+        root.classList.toggle("is-watch-deferred", nextDeferred);
+
+        // Animate the rail when it first becomes available after scrolling past the description.
+        if (wasDeferred && !nextDeferred && root.classList.contains("is-route-visible")) {
+          root.classList.remove("is-watch-revealing");
+          // Force restart so repeated scroll-up/down still plays the enter motion.
+          void root.offsetWidth;
+          root.classList.add("is-watch-revealing");
+          clearTimeout(root.__igBulkRevealTimer);
+          root.__igBulkRevealTimer = setTimeout(() => {
+            root.classList.remove("is-watch-revealing");
+          }, 500);
+        } else if (nextDeferred) {
+          root.classList.remove("is-watch-revealing");
+          clearTimeout(root.__igBulkRevealTimer);
+        }
       }
     };
   }
