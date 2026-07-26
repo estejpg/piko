@@ -266,17 +266,105 @@
     return data && data.data && data.data.shortcode_media;
   }
 
+  function parseStoryRoute(pathname) {
+    const path = String(pathname || "");
+    const highlight = path.match(/^\/stories\/highlights\/([^/]+)(?:\/(\d+))?\/?/);
+    if (highlight) {
+      return {
+        type: "story",
+        kind: "highlight",
+        highlightId: highlight[1],
+        username: "",
+        mediaId: highlight[2] || ""
+      };
+    }
+    const userStory = path.match(/^\/stories\/([^/]+)(?:\/(\d+))?\/?/);
+    if (userStory && userStory[1] !== "highlights") {
+      return {
+        type: "story",
+        kind: "user",
+        username: userStory[1],
+        highlightId: "",
+        mediaId: userStory[2] || ""
+      };
+    }
+    return null;
+  }
+
+  function normalizeStoryItems(payload, options) {
+    const items = payload && Array.isArray(payload.items) ? payload.items : [];
+    const user = (payload && payload.user) || null;
+    const mediaId = options && options.mediaId ? String(options.mediaId) : "";
+    const onlyCurrent = Boolean(options && options.onlyCurrent);
+    const selected = onlyCurrent && mediaId
+      ? items.filter((item) => String(item.pk || item.id) === mediaId)
+      : items;
+    const source = selected.length ? selected : items;
+    return source
+      .map((item, index) => {
+        const normalized = normalizeMediaNode(item, { user, owner: user, id: item && (item.pk || item.id) }, index);
+        if (!normalized) return null;
+        return {
+          ...normalized,
+          ownerUsername: (user && user.username) || normalized.ownerUsername,
+          sourcePostId: String((payload && payload.reelId) || (item && (item.pk || item.id)) || "")
+        };
+      })
+      .filter(Boolean);
+  }
+
+  function collectVisibleStoryDomMedia(username) {
+    const candidates = Array.from(document.querySelectorAll("section video, section img, [role='dialog'] video, [role='dialog'] img, main video, main img, video, img"));
+    const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
+    const viewportWidth = window.innerWidth || document.documentElement.clientWidth;
+    let best = null;
+    let bestArea = 0;
+
+    candidates.forEach((node) => {
+      const rect = node.getBoundingClientRect();
+      const visible = rect.bottom > 0 && rect.right > 0 && rect.top < viewportHeight && rect.left < viewportWidth;
+      if (!visible || rect.width < 180 || rect.height < 180) return;
+      if (node.tagName === "IMG" && String(node.alt || "").toLowerCase().includes("profile picture")) return;
+      const area = rect.width * rect.height;
+      if (area > bestArea) {
+        bestArea = area;
+        best = node;
+      }
+    });
+
+    if (!best) return [];
+    const url =
+      best.tagName === "VIDEO"
+        ? best.currentSrc || best.src || best.getAttribute("poster") || ""
+        : best.currentSrc || best.src || "";
+    if (!url || url.startsWith("data:")) return [];
+    return [
+      buildMediaItem({
+        id: best.getAttribute("data-ig-bulk-media-id") || `story-${Date.now()}`,
+        ownerUsername: username || usernameFromPath() || "instagram",
+        takenAt: Math.floor(Date.now() / 1000),
+        mediaType: best.tagName === "VIDEO" ? "video" : "image",
+        url,
+        order: 1
+      })
+    ];
+  }
+
   window.IgBulkMediaResolver = {
     buildMediaItem,
     collectProfileShortcodes,
     collectVisibleDomMedia,
+    collectVisibleStoryDomMedia,
     dedupeByUrl,
     fetchPostFallback,
     collectVisibleDomThumbnails,
     normalizePost,
     normalizePostThumbnails,
+    normalizeStoryItems,
+    parseStoryRoute,
     sanitizeFilenamePart,
     shortcodeFromUrl,
     usernameFromPath
   };
 })();
+

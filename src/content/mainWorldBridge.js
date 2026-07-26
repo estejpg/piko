@@ -67,6 +67,73 @@
     return null;
   }
 
+  async function instapiGet(url, query) {
+    const instapi = getRequireModule("PolarisInstapi");
+    if (!instapi || typeof instapi.apiGet !== "function") {
+      throw new Error("PolarisInstapi is unavailable on this page.");
+    }
+    const result = await instapi.apiGet(url, { query: query || {} });
+    return result && Object.prototype.hasOwnProperty.call(result, "data") ? result.data : result;
+  }
+
+  function trayEntries(payload) {
+    if (!payload) return [];
+    if (Array.isArray(payload.tray)) return payload.tray;
+    if (Array.isArray(payload.reels)) return payload.reels;
+    if (payload.tray && typeof payload.tray === "object") return Object.values(payload.tray);
+    return [];
+  }
+
+  function reelIdFromTrayEntry(entry) {
+    if (!entry) return "";
+    return String(entry.id || entry.reel_id || (entry.user && (entry.user.pk || entry.user.id)) || "");
+  }
+
+  function usernameFromTrayEntry(entry) {
+    if (!entry) return "";
+    return String((entry.user && entry.user.username) || entry.username || "").toLowerCase();
+  }
+
+  async function resolveStoryReelId(username, highlightId) {
+    if (highlightId) return `highlight:${highlightId}`;
+    const tray = await instapiGet("/api/v1/feed/reels_tray/", { is_following_feed: false });
+    const wanted = String(username || "").toLowerCase();
+    const match = trayEntries(tray).find((entry) => usernameFromTrayEntry(entry) === wanted);
+    const reelId = reelIdFromTrayEntry(match);
+    if (!reelId) throw new Error("Story reel was not found in the tray.");
+    return reelId;
+  }
+
+  async function loadStoryReelMedia(options) {
+    const username = options && options.username;
+    const highlightId = options && options.highlightId;
+    const mediaId = options && options.mediaId ? String(options.mediaId) : "";
+    const all = Boolean(options && options.all);
+
+    const reelId = await resolveStoryReelId(username, highlightId);
+    const payload = await instapiGet("/api/v1/feed/reels_media/", {
+      reel_ids: String(reelId),
+      media_id: mediaId || undefined
+    });
+
+    const reelsMedia = Array.isArray(payload && payload.reels_media)
+      ? payload.reels_media
+      : payload && payload.reels && payload.reels[reelId]
+        ? [payload.reels[reelId]]
+        : [];
+    const reel = reelsMedia[0] || (payload && payload.reels && payload.reels[reelId]) || null;
+    const items = reel && Array.isArray(reel.items) ? reel.items : [];
+    const user = (reel && reel.user) || (payload && payload.reels && payload.reels[reelId] && payload.reels[reelId].user) || null;
+    const filtered = !all && mediaId ? items.filter((item) => String(item.pk || item.id) === mediaId) : items;
+
+    return {
+      reelId,
+      user,
+      items: filtered.length ? filtered : items,
+      all
+    };
+  }
+
   function getReactMediaIdFromNode(node) {
     if (!node) return null;
     for (const key of Object.keys(node)) {
@@ -112,6 +179,8 @@
     try {
       if (message.kind === "postByShortcode") {
         payload = await loadPostFromShortcode(message.shortcode);
+      } else if (message.kind === "storyReelMedia") {
+        payload = await loadStoryReelMedia(message);
       } else if (message.kind === "markMediaIds") {
         markVisibleMediaIds(document);
         payload = { ok: true };
