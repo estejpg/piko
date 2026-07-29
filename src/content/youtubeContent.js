@@ -879,6 +879,8 @@
     if (!videoId) {
       pageMenu.setVisible(isSupportedListingRoute());
       pageMenu.setWatchDeferred(false);
+      // Keep Select/Settings suppressed while the selection dock owns the bottom slot.
+      pageMenu.setSelectionMode(selectionMode);
       return;
     }
 
@@ -887,6 +889,7 @@
       if (isShortsPath(new URL(location.href).pathname)) {
         // Shorts has no #description watch-rail; keep the bottom page menu visible.
         pageMenu.setWatchDeferred(false);
+        pageMenu.setSelectionMode(selectionMode);
         return;
       }
     } catch (error) {
@@ -894,6 +897,7 @@
     }
     // Keep the bottom rail out of the way of Thumbnail/Transcript until the user scrolls past #description.
     pageMenu.setWatchDeferred(!hasScrolledPastWatchDescription());
+    pageMenu.setSelectionMode(selectionMode);
     ensureWatchDescriptionObserver();
     bindWatchScrollRoots();
   }
