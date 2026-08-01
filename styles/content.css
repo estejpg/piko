@@ -279,11 +279,13 @@ html[style*="color-scheme: dark"] {
 
 .ig-bulk-youtube-page-menu.is-route-visible {
   display: flex;
+  visibility: visible;
   opacity: 1;
   transform: translateX(-50%) translateY(0) scale(1);
   transition:
     opacity 380ms var(--piko-ease),
-    transform 480ms var(--piko-ease);
+    transform 480ms var(--piko-ease),
+    visibility 0s linear;
 }
 
 /* Watch pages keep the bottom rail hidden until Thumbnail/Transcript leave the upper band. */
@@ -295,6 +297,16 @@ html[style*="color-scheme: dark"] {
 
 .ig-bulk-youtube-page-menu.is-route-visible.is-watch-revealing {
   animation: piko-watch-rail-enter 480ms var(--piko-ease) both;
+}
+
+/* Selection mode swaps to the preview dock. Must beat .is-route-visible's opacity:1
+   (same specificity otherwise — later rule was keeping Select/Settings visible). */
+.ig-bulk-youtube-page-menu.is-route-visible.is-suppressed {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateX(-50%) translateY(8px) scale(0.985);
+  animation: none;
 }
 
 .ig-bulk-tile,
@@ -444,6 +456,11 @@ html[style*="color-scheme: dark"] {
   opacity: 1;
   pointer-events: auto;
   transform: translateX(-50%) translateY(0) scale(1);
+}
+
+/* Sit above the page Select/Settings rail if both briefly coexist during a transition. */
+.ig-bulk-youtube-selection-dock.is-visible {
+  z-index: 2147483001;
 }
 
 .ig-bulk-selection-bar__previews,
