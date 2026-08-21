@@ -60,7 +60,6 @@
     const progress = bar.querySelector('[data-role="progress"]');
     const previews = bar.querySelector('[data-role="previews"]');
     const download = bar.querySelector('[data-action="download"]');
-    const downloadLabel = bar.querySelector('[data-role="download-label"]');
     const clear = bar.querySelector('[data-action="clear"]');
     const done = bar.querySelector('[data-action="done"]');
     let busy = false;
@@ -101,7 +100,6 @@
     function update(active) {
       const selectedCount = selectedItems.size;
       count.textContent = `${selectedCount} selected`;
-      downloadLabel.textContent = options.isThumbnailMode && options.isThumbnailMode() ? "Download thumbs" : "Download";
       bar.classList.toggle("is-visible", Boolean(active));
       download.disabled = busy || selectedCount === 0;
       clear.disabled = busy || selectedCount === 0;

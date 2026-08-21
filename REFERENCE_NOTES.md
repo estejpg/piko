@@ -168,11 +168,16 @@ The shared bottom menu changes by route and mode. Selection replaces the normal 
 
 Instagram content uses a split:
 
-- `src/content/mainWorldBridge.js` runs in the page context.
-- `src/content/instagramContent.js` runs in the isolated extension context.
-- Messages pass through the shared vocabulary in `src/shared/messages.js`.
+- `src/content/mainWorldBridge.js` runs in the page context. It only stashes
+  the web API headers in sessionStorage, emits SPA route-change events, and
+  tags media elements with their numeric media id.
+- `src/content/instagramContent.js` runs in the isolated extension context and
+  resolves all media through Instagram's web REST API via
+  `src/media/mediaResolver.js`.
+- Route-change events pass through the shared vocabulary in `src/shared/messages.js`.
 
-Keep this split. It is the safest place to contain brittle Instagram internals.
+Keep this split. The main world script stays deliberately small so brittle
+Instagram internals cannot spread.
 
 ### Route-Aware Mounting
 

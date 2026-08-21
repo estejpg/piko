@@ -234,14 +234,9 @@ html[style*="color-scheme: dark"] {
   transform: scale(0.93);
 }
 
-.ig-bulk-icon-button.is-active,
-.ig-bulk-icon-button.is-thumbnail-active {
+.ig-bulk-icon-button.is-active {
   background: var(--piko-text);
   color: var(--piko-page);
-}
-
-.ig-bulk-icon-button.is-thumbnail-active {
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--piko-page) 28%, transparent);
 }
 
 .ig-bulk-bottom-menu__status {

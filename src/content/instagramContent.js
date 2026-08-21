@@ -17,12 +17,14 @@
   let toastHost = null;
   let shortcutController = null;
   let activeProfileMode = null;
-  let thumbnailMode = false;
   let selectionMode = false;
   let routeRefreshTimer = null;
   let contextualRefreshFrame = null;
-  let profilePositionFrame = null;
   let lastRoutePathname = location.pathname;
+
+  function delay(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
 
   function normalizeSettings(nextSettings) {
     return settingsStore.normalize(nextSettings);
@@ -39,13 +41,14 @@
     if (/^\/reels\/?$/.test(pathname)) return { type: "feed" };
     if (/^\/explore\b/.test(pathname)) return { type: "explore" };
 
-    const postMatch = pathname.match(/^\/(?:p|reel|tv)\/([^/]+)/);
+    // /reels/{code} is the reels feed with a focused reel; treat it as a post route.
+    const postMatch = pathname.match(/^\/(?:p|reels?|tv)\/([^/]+)/);
     if (postMatch) return { type: "post", shortcode: postMatch[1] };
 
     const profileMatch = pathname.match(/^\/([^/]+)(?:\/(reels|tagged|saved))?\/?$/);
     if (profileMatch) {
       return {
-        type: profileMatch[2] === "reels" ? "profileReels" : "profile",
+        type: "profile",
         username: profileMatch[1],
         tab: profileMatch[2] || "posts"
       };
@@ -59,7 +62,7 @@
   }
 
   function isProfileRoute(currentRoute) {
-    return currentRoute.type === "profile" || currentRoute.type === "profileReels";
+    return currentRoute.type === "profile";
   }
 
   function supportsGridTileActions(currentRoute) {
@@ -89,41 +92,6 @@
     // Explore grids are owned by ProfileHoverButtons; timeline overlays are for feed/post/modals.
     // Opening a post from Explore typically navigates to /p|reel/, which enables timeline there.
     return currentRoute.type === "feed" || currentRoute.type === "post";
-  }
-
-  function requestBridge(kind, payload) {
-    const requestId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-    const timeoutMs = kind === "storyReelMedia" ? 10000 : 5000;
-
-    return new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        window.removeEventListener("message", onMessage);
-        reject(new Error("Instagram page bridge timed out."));
-      }, timeoutMs);
-
-      function onMessage(event) {
-        if (event.source !== window || event.origin !== location.origin) return;
-        const message = event.data || {};
-        if (message.source !== MSG.BRIDGE_SOURCE || message.type !== MSG.RESPONSE_MEDIA || message.requestId !== requestId) return;
-
-        clearTimeout(timeout);
-        window.removeEventListener("message", onMessage);
-        if (message.error) reject(new Error(message.error));
-        else resolve(message.payload);
-      }
-
-      window.addEventListener("message", onMessage);
-      window.postMessage(
-        {
-          source: MSG.CONTENT_SOURCE,
-          type: MSG.REQUEST_MEDIA,
-          requestId,
-          kind,
-          ...payload
-        },
-        location.origin
-      );
-    });
   }
 
   async function loadSettings() {
@@ -170,12 +138,36 @@
     return getToastHost().update(id, options);
   }
 
+  function isRateLimited(error) {
+    return Boolean(error && error.code === "RATE_LIMITED");
+  }
+
+  function notifyRateLimited() {
+    setStatus("Rate limited");
+    showToast({
+      title: "Instagram is limiting requests",
+      detail: "Too many requests right now. Please wait a few minutes and try again.",
+      tone: "warning",
+      timeoutMs: 5600
+    });
+  }
+
   function notifyResolutionFailure(detail) {
     if (!settings.showReliabilityToasts) return null;
     return showToast({
       title: "Could not resolve media",
-      detail: detail || "Bridge, GraphQL, and on-page fallbacks returned no media.",
+      detail: detail || "Instagram's API and on-page fallbacks returned no media.",
       tone: "health"
+    });
+  }
+
+  function notifyDomFallback(detail) {
+    if (!settings.showReliabilityToasts) return;
+    showToast({
+      title: "Used on-page media fallback",
+      detail: detail || "",
+      tone: "neutral",
+      timeoutMs: 2400
     });
   }
 
@@ -208,9 +200,7 @@
 
     if (feedButton && shouldShowPageMenu(route)) {
       const hasSelectAction = Boolean(feedButton.element.querySelector('button[data-action="select"]'));
-      const hasThumbnailAction = Boolean(feedButton.element.querySelector('button[data-action="thumbnail"]'));
-      const wantsThumbnailAction = route.type === "explore";
-      if (hasSelectAction !== supportsGridMultiSelect(route) || hasThumbnailAction !== wantsThumbnailAction) {
+      if (hasSelectAction !== supportsGridMultiSelect(route)) {
         feedButton.element.remove();
         feedButton = null;
       }
@@ -258,31 +248,25 @@
 
     if (isProfileRoute(route) && !profileMenu) {
       profileMenu = window.IgBulkProfileSideMenu.createProfileSideMenu({
-        visible: () => toggleProfileMode("visible", (token) => downloadVisibleMedia("profile visible media", token)),
+        visible: () => toggleProfileMode("visible", (token) => downloadVisibleMedia("visible media", token)),
         profile: () => toggleProfileMode("profile", (token) => downloadProfileBulk("profile media", { token })),
-        reels: () => toggleProfileMode("reels", (token) => downloadProfileBulk("profile reels", { reelsOnly: true, token })),
-        thumbnail: () => toggleThumbnailMode(),
         select: () => toggleSelectionMode(),
         cancel: () => cancelProfileMode("user"),
         folder: () => chooseFolder()
       });
       document.body.appendChild(profileMenu.element);
-      if (profileMenu.setThumbnailMode) profileMenu.setThumbnailMode(thumbnailMode);
       if (profileMenu.setSelectionMode) profileMenu.setSelectionMode(selectionMode);
-      updateProfileMenuPosition();
     }
 
     if (shouldShowPageMenu(route) && !feedButton) {
       feedButton = window.IgBulkFeedTopButton.createFeedTopButton({
         current: () => downloadCurrentPostOrVisibleMedia(),
         select: supportsGridMultiSelect(route) ? () => toggleSelectionMode() : null,
-        thumbnail: route.type === "explore" ? () => toggleThumbnailMode() : null,
         folder: () => chooseFolder(),
         options: () => openOptions()
       });
       document.body.appendChild(feedButton.element);
       if (feedButton.setSelectionMode) feedButton.setSelectionMode(selectionMode);
-      if (feedButton.setThumbnailMode) feedButton.setThumbnailMode(thumbnailMode);
     }
 
     if (isStoryRoute(route) && !storyActions && window.IgBulkStoryViewerActions) {
@@ -308,7 +292,6 @@
 
     if (supportsGridMultiSelect(route) && !profileMultiSelect) {
       profileMultiSelect = window.IgBulkProfileMultiSelect.createProfileMultiSelect({
-        isThumbnailMode: () => thumbnailMode,
         onExitSelectionMode: () => setSelectionMode(false),
         onSelectionModeChanged: (enabled) => {
           selectionMode = Boolean(enabled);
@@ -335,19 +318,6 @@
     contextualRefreshFrame = requestAnimationFrame(() => {
       contextualRefreshFrame = null;
       refreshContextualActions();
-    });
-  }
-
-  function updateProfileMenuPosition() {
-    if (!profileMenu) return;
-    profileMenu.element.style.removeProperty("top");
-  }
-
-  function scheduleProfileMenuPosition() {
-    if (profilePositionFrame) return;
-    profilePositionFrame = requestAnimationFrame(() => {
-      profilePositionFrame = null;
-      updateProfileMenuPosition();
     });
   }
 
@@ -418,7 +388,8 @@
       await task(token);
     } catch (error) {
       if (!isModeCancelled(token) && error.name !== "AbortError") {
-        showToast({ title: "Mode failed", detail: error.message || "Could not complete this action.", tone: "error" });
+        if (isRateLimited(error)) notifyRateLimited();
+        else showToast({ title: "Mode failed", detail: error.message || "Could not complete this action.", tone: "error" });
       }
     } finally {
       if (activeProfileMode === token) {
@@ -432,22 +403,7 @@
   function modeLabel(mode) {
     if (mode === "visible") return "Visible";
     if (mode === "profile") return "Profile";
-    if (mode === "reels") return "Reels";
     return "Mode";
-  }
-
-  function toggleThumbnailMode() {
-    thumbnailMode = !thumbnailMode;
-    if (profileMenu && profileMenu.setThumbnailMode) profileMenu.setThumbnailMode(thumbnailMode);
-    if (feedButton && feedButton.setThumbnailMode) feedButton.setThumbnailMode(thumbnailMode);
-    if (profileMultiSelect && profileMultiSelect.refresh) profileMultiSelect.refresh();
-    setStatus(thumbnailMode ? "Thumbnails active" : "Thumbnails off");
-    showToast({
-      title: thumbnailMode ? "Thumbnail Mode on" : "Thumbnail Mode off",
-      detail: thumbnailMode ? "Downloads will target poster and thumbnail images." : "Downloads will use full media again.",
-      tone: "neutral",
-      timeoutMs: 2800
-    });
   }
 
   async function chooseFolder() {
@@ -467,100 +423,93 @@
     chrome.runtime.openOptionsPage();
   }
 
-  async function resolvePostByShortcode(shortcode, options) {
-    let post = null;
-    try {
-      post = await requestBridge("postByShortcode", { shortcode });
-    } catch (error) {
-      post = null;
-    }
+  function findAnchorForShortcode(shortcode) {
+    return Array.from(
+      document.querySelectorAll('main a[href*="/p/"], main a[href*="/reel/"], main a[href*="/tv/"]')
+    ).find((candidate) => resolver.shortcodeFromUrl(candidate.href) === shortcode);
+  }
 
-    if (!post) {
+  // Resolve one post/reel to downloadable items:
+  // shortcode -> media id -> REST info API, then marked media id, then rendered DOM.
+  async function resolveMediaForElement(shortcode, fallbackRoot) {
+    if (shortcode) {
       try {
-        post = await resolver.fetchPostFallback(shortcode);
+        const items = await resolver.fetchPostItems(shortcode);
+        if (items.length) return { items, source: "api" };
       } catch (error) {
-        post = null;
+        if (isRateLimited(error)) return { items: [], source: "none", rateLimited: true };
       }
     }
 
-    return options && options.thumbnailOnly ? resolver.normalizePostThumbnails(post) : resolver.normalizePost(post);
-  }
+    const mediaId = resolver.mediaIdFromElement(fallbackRoot);
+    if (mediaId) {
+      try {
+        const items = await resolver.fetchMediaItemsById(mediaId);
+        if (items.length) return { items, source: "api" };
+      } catch (error) {
+        if (isRateLimited(error)) return { items: [], source: "none", rateLimited: true };
+      }
+    }
 
-  function collectDomMediaWithin(root, options) {
-    if (!root) return [];
-    const nodes = Array.from(root.querySelectorAll("video, img"));
-    const thumbnailOnly = Boolean(options && options.thumbnailOnly);
-    return resolver.dedupeByUrl(
-      nodes
-        .map((node, index) => {
-          const rect = node.getBoundingClientRect();
-          if (rect.width < 80 || rect.height < 80) return null;
-          const url = thumbnailOnly && node.tagName === "VIDEO" ? node.getAttribute("poster") : node.currentSrc || node.src;
-          if (!url || url.startsWith("data:")) return null;
-          return resolver.buildMediaItem({
-            id: thumbnailOnly ? `${node.getAttribute("data-ig-bulk-media-id") || index}-thumbnail` : node.getAttribute("data-ig-bulk-media-id") || index,
-            ownerUsername: resolver.usernameFromPath() || "instagram",
-            takenAt: Math.floor(Date.now() / 1000),
-            mediaType: thumbnailOnly ? "image" : node.tagName === "VIDEO" ? "video" : "image",
-            url,
-            order: index + 1
-          });
-        })
-        .filter(Boolean)
-    );
-  }
-
-  function shortcodeFromElement(root) {
-    if (!root) return null;
-    const directLink = root.matches && root.matches('a[href*="/p/"], a[href*="/reel/"], a[href*="/tv/"]') ? root : null;
-    const link = directLink || root.querySelector('a[href*="/p/"], a[href*="/reel/"], a[href*="/tv/"]');
-    if (link) return resolver.shortcodeFromUrl(link.href);
-
-    const current = resolver.shortcodeFromUrl(location.href);
-    const isModalContext = root.closest && root.closest('[role="dialog"], [aria-modal="true"]');
-    return isModalContext && current ? current : null;
+    const domItems = resolver.collectDomMediaWithin(fallbackRoot);
+    return { items: domItems, source: domItems.length ? "dom" : "none" };
   }
 
   async function downloadPostByShortcode(shortcode, label, fallbackRoot) {
-    const thumbnailOnly = thumbnailMode;
-    if (!shortcode) {
-      const fallbackItems = applyFilenamePattern(collectDomMediaWithin(fallbackRoot, { thumbnailOnly }));
-      return downloadMediaItems(fallbackItems, thumbnailOnly ? `${label || "media"} thumbnails` : label || "media");
+    const resolved = await resolveMediaForElement(shortcode, fallbackRoot);
+    if (resolved.rateLimited && !resolved.items.length) {
+      notifyRateLimited();
+      return;
     }
 
-    let items = await resolvePostByShortcode(shortcode, { thumbnailOnly });
-    const resolvedPrivately = items.length > 0;
-    if (!items.length) items = collectDomMediaWithin(fallbackRoot, { thumbnailOnly });
+    if (resolved.source === "dom") notifyDomFallback();
 
-    if (!resolvedPrivately && items.length && settings.showReliabilityToasts) {
-      showToast({ title: "Used on-page media fallback", tone: "neutral", timeoutMs: 2400 });
-    }
-
-    const patterned = applyFilenamePattern(items);
+    const patterned = applyFilenamePattern(resolved.items);
     if (!patterned.length) {
-      notifyResolutionFailure("Bridge, GraphQL, and on-page fallbacks returned no media.");
-      return downloadMediaItems(patterned, thumbnailOnly ? `${label || "post"} thumbnails` : label || "post", null, null, {
-        resolutionExhausted: true
-      });
+      notifyResolutionFailure();
+      return downloadMediaItems(patterned, label || "post", null, null, { resolutionExhausted: true });
     }
 
-    return downloadMediaItems(patterned, thumbnailOnly ? `${label || "post"} thumbnails` : label || "post");
+    return downloadMediaItems(patterned, label || "post");
   }
 
-  async function resolveStoryReel(options) {
-    const current = isStoryRoute(route) ? route : resolver.parseStoryRoute(location.pathname);
-    if (!current) throw new Error("Open a story to download it.");
+  // Resolve a list of shortcodes through the REST API with per-item DOM fallback.
+  // Stops early when cancelled or rate limited.
+  async function resolveShortcodeList(shortcodes, options) {
+    const token = options && options.token;
+    const onProgress = (options && options.onProgress) || function () {};
+    const allItems = [];
+    let failed = 0;
+    let rateLimited = false;
+    let usedDomFallback = false;
 
-    try {
-      return await requestBridge("storyReelMedia", {
-        username: current.username,
-        highlightId: current.highlightId,
-        mediaId: current.mediaId,
-        all: Boolean(options && options.all)
-      });
-    } catch (error) {
-      return null;
+    for (let index = 0; index < shortcodes.length; index += 1) {
+      if (isModeCancelled(token)) break;
+      onProgress(index + 1, shortcodes.length);
+
+      const shortcode = shortcodes[index];
+      let items = [];
+      try {
+        items = await resolver.fetchPostItems(shortcode);
+      } catch (error) {
+        if (isRateLimited(error)) {
+          rateLimited = true;
+          break;
+        }
+      }
+
+      if (!items.length) {
+        items = resolver.collectDomMediaWithin(findAnchorForShortcode(shortcode));
+        if (items.length) usedDomFallback = true;
+      }
+
+      if (items.length) allItems.push(...items);
+      else failed += 1;
+
+      if (index < shortcodes.length - 1) await delay(250);
     }
+
+    return { items: resolver.dedupeByUrl(allItems), failed, rateLimited, usedDomFallback };
   }
 
   async function downloadStoryMedia(options) {
@@ -577,12 +526,18 @@
     try {
       let items = [];
       let usedDomFallback = false;
-      const payload = await resolveStoryReel({ all });
-      if (payload) {
-        items = resolver.normalizeStoryItems(payload, {
+      let rateLimited = false;
+
+      try {
+        items = await resolver.fetchStoryItems({
+          username: current.username,
+          highlightId: current.highlightId,
           mediaId: current.mediaId,
-          onlyCurrent: !all
+          all
         });
+      } catch (error) {
+        rateLimited = isRateLimited(error);
+        items = [];
       }
 
       if (!items.length) {
@@ -591,19 +546,13 @@
       }
 
       if (!items.length) {
-        notifyResolutionFailure("Story API and on-page fallbacks returned no media.");
+        if (rateLimited) notifyRateLimited();
+        else notifyResolutionFailure("Story API and on-page fallbacks returned no media.");
         setStatus("No story media");
         return;
       }
 
-      if (usedDomFallback && settings.showReliabilityToasts) {
-        showToast({
-          title: "Used on-page media fallback",
-          detail: "Story internals were unavailable for this item.",
-          tone: "neutral",
-          timeoutMs: 2400
-        });
-      }
+      if (usedDomFallback) notifyDomFallback("Story data was unavailable for this item.");
 
       const patterned = applyFilenamePattern(items);
       const label = all ? "story reel" : "story item";
@@ -643,7 +592,7 @@
               detail: `${downloaded}/${patterned.length} complete`,
               progress: Math.round(((index + 1) / patterned.length) * 100)
             });
-            await new Promise((resolve) => setTimeout(resolve, 200));
+            await delay(200);
           }
           updateToast(toastId, {
             title: failed ? "Story reel finished" : "Story reel saved",
@@ -697,6 +646,17 @@
     }
   }
 
+  function shortcodeFromElement(root) {
+    if (!root) return null;
+    const directLink = root.matches && root.matches('a[href*="/p/"], a[href*="/reel/"], a[href*="/tv/"]') ? root : null;
+    const link = directLink || root.querySelector('a[href*="/p/"], a[href*="/reel/"], a[href*="/tv/"]');
+    if (link) return resolver.shortcodeFromUrl(link.href);
+
+    const current = resolver.shortcodeFromUrl(location.href);
+    const isModalContext = root.closest && root.closest('[role="dialog"], [aria-modal="true"]');
+    return isModalContext && current ? current : null;
+  }
+
   async function downloadTimelineArticle(article, button) {
     await withButtonBusy(button, () => downloadPostByShortcode(shortcodeFromElement(article), "post", article));
   }
@@ -711,9 +671,8 @@
     controls.setProgress = controls.setProgress || function () {};
 
     const uniqueShortcodes = Array.from(new Set(shortcodes.filter(Boolean)));
-    const thumbnailOnly = thumbnailMode;
     if (!uniqueShortcodes.length) {
-      showToast({ title: "Select media first", detail: "Choose one or more profile tiles to download.", tone: "warning" });
+      showToast({ title: "Select media first", detail: "Choose one or more tiles to download.", tone: "warning" });
       return;
     }
 
@@ -731,47 +690,29 @@
         0
       );
 
-      const allItems = [];
-      let failed = 0;
-      let notifiedDomFallback = false;
-
-      for (let index = 0; index < uniqueShortcodes.length; index += 1) {
-        setStatus(`Resolving ${index + 1}/${uniqueShortcodes.length}`);
-        controls.setProgress(`Resolving ${index + 1}/${uniqueShortcodes.length}`);
-        updateToast(toastId, {
-          detail: `Resolving ${index + 1}/${uniqueShortcodes.length}`,
-          progress: ((index + 1) / uniqueShortcodes.length) * 40
-        });
-        try {
-          const shortcode = uniqueShortcodes[index];
-          let items = await resolvePostByShortcode(shortcode, { thumbnailOnly });
-          const resolvedPrivately = items.length > 0;
-          if (!items.length) {
-            const anchor = Array.from(
-              document.querySelectorAll('main a[href*="/p/"], main a[href*="/reel/"], main a[href*="/tv/"]')
-            ).find((candidate) => resolver.shortcodeFromUrl(candidate.href) === shortcode);
-            items = collectDomMediaWithin(anchor, { thumbnailOnly });
-            if (!resolvedPrivately && items.length && !notifiedDomFallback && settings.showReliabilityToasts) {
-              notifiedDomFallback = true;
-              showToast({ title: "Used on-page media fallback", tone: "neutral", timeoutMs: 2400 });
-            }
-          }
-          if (items.length) allItems.push(...items);
-          else failed += 1;
-        } catch (error) {
-          failed += 1;
+      const resolved = await resolveShortcodeList(uniqueShortcodes, {
+        onProgress(done, total) {
+          setStatus(`Resolving ${done}/${total}`);
+          controls.setProgress(`Resolving ${done}/${total}`);
+          updateToast(toastId, {
+            detail: `Resolving ${done}/${total}`,
+            progress: (done / total) * 40
+          });
         }
-        await new Promise((resolve) => setTimeout(resolve, 250));
-      }
+      });
 
-      const uniqueItems = applyFilenamePattern(resolver.dedupeByUrl(allItems));
+      if (resolved.usedDomFallback) notifyDomFallback();
+
+      const uniqueItems = applyFilenamePattern(resolved.items);
       if (!uniqueItems.length) {
         setStatus("No media found");
         controls.setProgress("");
         updateToast(toastId, {
-          title: "No media found",
-          detail: "Could not resolve downloadable media for the selected items.",
-          tone: "health",
+          title: resolved.rateLimited ? "Instagram is limiting requests" : "No media found",
+          detail: resolved.rateLimited
+            ? "Too many requests right now. Please wait a few minutes and try again."
+            : "Could not resolve downloadable media for the selected items.",
+          tone: resolved.rateLimited ? "warning" : "health",
           progress: null,
           timeoutMs: 4500
         });
@@ -785,8 +726,8 @@
         tone: "progress",
         progress: 45
       });
-      const selectedLabel = thumbnailOnly ? "selected media thumbnails" : "selected media";
-      await downloadMediaItems(uniqueItems, failed ? `${selectedLabel} (${failed} unresolved)` : selectedLabel, controls);
+      const unresolved = resolved.failed + (resolved.rateLimited ? 1 : 0);
+      await downloadMediaItems(uniqueItems, unresolved ? `selected media (${unresolved} unresolved)` : "selected media", controls);
       controls.setProgress("Done");
     } finally {
       controls.setBusy(false);
@@ -823,95 +764,161 @@
   async function downloadCurrentPostOrVisibleMedia() {
     setStatus("Resolving media...");
     const shortcode = currentShortcode();
-    const thumbnailOnly = thumbnailMode;
-    let items = [];
 
     if (shortcode) {
       await downloadPostByShortcode(shortcode, "current media", document);
       return;
     }
 
-    items = applyFilenamePattern(thumbnailOnly ? resolver.collectVisibleDomThumbnails(document) : resolver.collectVisibleDomMedia());
-    await downloadMediaItems(items.slice(0, 1), thumbnailOnly ? "current media thumbnails" : "current media");
+    const items = applyFilenamePattern(resolver.collectVisibleDomMedia());
+    await downloadMediaItems(items.slice(0, 1), "current media");
   }
 
   async function downloadVisibleMedia(label, token) {
     assertModeActive(token);
-    const thumbnailOnly = thumbnailMode;
-    const items = applyFilenamePattern(thumbnailOnly ? resolver.collectVisibleDomThumbnails(document) : resolver.collectVisibleDomMedia());
+    setStatus("Collecting visible media...");
+
+    // Resolve the visible tiles through the API so carousels and full-quality
+    // media are included, not just the preview images rendered in the grid.
+    const shortcodes = resolver.collectProfileShortcodes({ visibleOnly: true });
+    let items = [];
+    let rateLimited = false;
+
+    if (shortcodes.length) {
+      const resolved = await resolveShortcodeList(shortcodes, {
+        token,
+        onProgress(done, total) {
+          setStatus(`Resolving ${done}/${total}`);
+        }
+      });
+      items = resolved.items;
+      rateLimited = resolved.rateLimited;
+      if (resolved.usedDomFallback && items.length) notifyDomFallback();
+    }
+
+    assertModeActive(token);
+
+    if (!items.length) items = resolver.collectVisibleDomMedia();
+
     if (!items.length) {
-      showToast({ title: "No visible media found", detail: thumbnailOnly ? "Try scrolling until thumbnails are visible and downloading again." : "Try scrolling the profile grid and downloading again.", tone: "warning" });
+      if (rateLimited) {
+        notifyRateLimited();
+        return;
+      }
+      showToast({ title: "No visible media found", detail: "Try scrolling the grid and downloading again.", tone: "warning" });
       setStatus("No media found");
       return;
     }
 
-    if (items.length === 1) {
-      await downloadSingleItem(items[0], `Downloaded ${thumbnailOnly ? "visible media thumbnails" : "visible media"}`, null, token);
+    const patterned = applyFilenamePattern(items);
+    if (patterned.length === 1) {
+      await downloadSingleItem(patterned[0], "Downloaded visible media", null, token);
       return;
     }
 
-    await downloadBulkItems(items, thumbnailOnly ? `${label || "visible media"} thumbnails` : label || "visible media", null, token);
+    await downloadBulkItems(patterned, label || "visible media", null, token);
   }
 
+  // Bulk profile download: paginate Instagram's profile feed API and download
+  // everything (photos, videos, reels, and every carousel child).
   async function downloadProfileBulk(label, options) {
     const token = options && options.token;
-    const thumbnailOnly = thumbnailMode;
     assertModeActive(token);
-    setStatus("Collecting posts...");
-    await requestBridge("markMediaIds", {}).catch(() => {});
 
-    let shortcodes = resolver.collectProfileShortcodes();
-    if (options && options.reelsOnly) {
-      shortcodes = shortcodes.filter((shortcode) => {
-        const anchor = document.querySelector(`a[href*="/reel/${shortcode}"]`);
-        return Boolean(anchor);
-      });
-    }
+    const username = (isProfileRoute(route) && route.username) || resolver.usernameFromPath();
+    let items = [];
+    let rateLimited = false;
 
-    if (!shortcodes.length) {
-      const domItems = thumbnailOnly ? resolver.collectVisibleDomThumbnails(document) : resolver.collectVisibleDomMedia();
-      if (domItems.length) return downloadBulkItems(applyFilenamePattern(domItems), thumbnailOnly ? `${label} thumbnails` : label, null, token);
-      setStatus("No posts found");
-      showToast({ title: "No posts found", detail: "No downloadable profile media was found on the current page.", tone: "warning" });
-      return;
-    }
+    if (username) {
+      setStatus("Collecting posts...");
+      const toastId = showToast(
+        { title: "Collecting profile media", detail: "Fetching posts...", tone: "progress", progress: 3 },
+        0
+      );
 
-    const maxItems = Math.min(shortcodes.length, 36);
-    const allItems = [];
-    let notifiedDomFallback = false;
-
-    for (let index = 0; index < maxItems; index += 1) {
-      assertModeActive(token);
-      setStatus(`Resolving ${index + 1}/${maxItems}`);
+      let totalPosts = 0;
       try {
-        let mediaItems = await resolvePostByShortcode(shortcodes[index], { thumbnailOnly });
-        const resolvedPrivately = mediaItems.length > 0;
-        if (!mediaItems.length) {
-          const anchor = Array.from(
-            document.querySelectorAll('main a[href*="/p/"], main a[href*="/reel/"], main a[href*="/tv/"]')
-          ).find((candidate) => resolver.shortcodeFromUrl(candidate.href) === shortcodes[index]);
-          mediaItems = collectDomMediaWithin(anchor, { thumbnailOnly });
-          if (!resolvedPrivately && mediaItems.length && !notifiedDomFallback && settings.showReliabilityToasts) {
-            notifiedDomFallback = true;
-            showToast({ title: "Used on-page media fallback", tone: "neutral", timeoutMs: 2400 });
-          }
+        try {
+          const user = await resolver.fetchUserInfo(username);
+          totalPosts = (user && user.totalPosts) || 0;
+        } catch (error) {
+          if (isRateLimited(error)) throw error;
+          // Profile info is only used for progress; pagination can proceed without it.
         }
-        allItems.push(...mediaItems);
+
+        let maxId = "";
+        let pages = 0;
+        do {
+          assertModeActive(token);
+          const page = await resolver.fetchProfileFeedPage(username, maxId);
+          items.push(...page.items);
+          maxId = page.nextMaxId;
+          pages += 1;
+          setStatus(`Collected ${items.length}`);
+          updateToast(toastId, {
+            detail: totalPosts
+              ? `${items.length} file(s) from ~${totalPosts} posts`
+              : `${items.length} file(s) collected`,
+            progress: totalPosts ? Math.min(90, Math.round((pages * 12 * 90) / Math.max(totalPosts, 1))) : 20
+          });
+          if (maxId) await delay(400);
+        } while (maxId);
+
+        updateToast(toastId, {
+          title: "Collection complete",
+          detail: `${items.length} file(s) ready`,
+          tone: "progress",
+          progress: 95,
+          timeoutMs: 2400
+        });
       } catch (error) {
-        // Continue; a profile grid may contain private, removed, or rate-limited media.
+        if (error.name === "AbortError" || isModeCancelled(token)) {
+          updateToast(toastId, { title: "Collection cancelled", detail: "", tone: "warning", progress: null, timeoutMs: 2600 });
+          throw error;
+        }
+        rateLimited = isRateLimited(error);
+        updateToast(toastId, {
+          title: items.length ? "Collection interrupted" : "Collection failed",
+          detail: items.length ? `Continuing with ${items.length} collected file(s).` : "",
+          tone: "warning",
+          progress: null,
+          timeoutMs: 3600
+        });
       }
-      await new Promise((resolve) => setTimeout(resolve, 350));
     }
 
+    // Fallback when the feed API is unavailable: resolve the tiles already on the page.
+    if (!items.length) {
+      const shortcodes = resolver.collectProfileShortcodes();
+      if (shortcodes.length && !rateLimited) {
+        const resolved = await resolveShortcodeList(shortcodes, {
+          token,
+          onProgress(done, total) {
+            setStatus(`Resolving ${done}/${total}`);
+          }
+        });
+        items = resolved.items;
+        rateLimited = resolved.rateLimited;
+        if (resolved.usedDomFallback && items.length) notifyDomFallback();
+      }
+    }
+
+    if (!items.length) items = resolver.collectVisibleDomMedia();
+
     assertModeActive(token);
-    const uniqueItems = applyFilenamePattern(resolver.dedupeByUrl(allItems));
-    if (!uniqueItems.length) {
-      setStatus("No downloadable URLs");
-      showToast({ title: "No downloadable URLs", detail: "Could not resolve media URLs for this profile.", tone: "health" });
+
+    if (!items.length) {
+      if (rateLimited) {
+        notifyRateLimited();
+        return;
+      }
+      setStatus("No posts found");
+      showToast({ title: "No posts found", detail: "No downloadable profile media was found.", tone: "warning" });
       return;
     }
 
-    await downloadBulkItems(uniqueItems, thumbnailOnly ? `${label || "profile media"} thumbnails` : label || "profile media", null, token);
+    const uniqueItems = applyFilenamePattern(resolver.dedupeByUrl(items));
+    await downloadBulkItems(uniqueItems, label || "profile media", null, token);
   }
 
   async function downloadSingleItem(item, doneMessage, controls, token) {
@@ -1016,9 +1023,7 @@
       if (changed && selectionMode) setSelectionMode(false);
       route = nextRoute;
       mountUiForRoute();
-      updateProfileMenuPosition();
       refreshContextualActions();
-      if (changed) requestBridge("markMediaIds", {}).catch(() => {});
     }, 120);
   }
 
@@ -1047,7 +1052,6 @@
     });
     observer.observe(document.body || document.documentElement, { childList: true, subtree: true });
 
-    window.addEventListener("resize", scheduleProfileMenuPosition);
     window.addEventListener("scroll", scheduleContextualRefresh, { passive: true });
     window.addEventListener("popstate", scheduleRouteRefresh);
     window.addEventListener("locationchange", scheduleRouteRefresh);
@@ -1085,7 +1089,6 @@
         return true;
       });
     }
-    requestBridge("markMediaIds", {}).catch(() => {});
     mountUiForRoute();
     observePageChanges();
   }
