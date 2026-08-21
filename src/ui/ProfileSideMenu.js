@@ -7,9 +7,7 @@
     root.innerHTML = [
       '<div class="ig-bulk-bottom-menu__rail" role="toolbar" aria-label="Piko profile actions">',
       dockButton("visible", "Download visible media", "visible", "Visible", { pressed: false }),
-      dockButton("profile", "Download profile media", "grid", "Profile", { pressed: false }),
-      dockButton("reels", "Download reels", "reel", "Reels", { pressed: false }),
-      dockButton("thumbnail", "Toggle thumbnail mode", "thumbnail", "Thumbs", { pressed: false }),
+      dockButton("profile", "Download all profile media", "grid", "Profile", { pressed: false }),
       dockButton("select", "Select profile media", "select", "Select", { pressed: false }),
       dockButton("folder", "Change folder", "folder", "Folder", { pressed: false }),
       "</div>",
@@ -38,26 +36,17 @@
         root.querySelectorAll("button[data-action]").forEach((button) => {
           const action = button.getAttribute("data-action");
           const active = Boolean(activeMode && action === activeMode);
-          const thumbnailActive = button.classList.contains("is-thumbnail-active");
           const selectionActive = action === "select" && root.classList.contains("is-selection-mode");
           button.classList.toggle("is-active", active || selectionActive);
-          button.setAttribute("aria-pressed", active || thumbnailActive || selectionActive ? "true" : "false");
+          button.setAttribute("aria-pressed", active || selectionActive ? "true" : "false");
           if (active) {
             button.title = `Cancel ${button.dataset.label || action}`;
             button.setAttribute("aria-label", `Cancel ${button.dataset.label || action}`);
-          } else if (!thumbnailActive && !selectionActive) {
+          } else if (!selectionActive) {
             button.title = button.dataset.defaultTitle || "";
             button.setAttribute("aria-label", button.dataset.defaultTitle || "");
           }
         });
-      },
-      setThumbnailMode(enabled) {
-        const button = root.querySelector('button[data-action="thumbnail"]');
-        if (!button) return;
-        button.classList.toggle("is-thumbnail-active", Boolean(enabled));
-        button.setAttribute("aria-pressed", enabled ? "true" : "false");
-        button.title = enabled ? "Disable thumbnail mode" : button.dataset.defaultTitle || "";
-        button.setAttribute("aria-label", enabled ? "Disable thumbnail mode" : button.dataset.defaultTitle || "");
       },
       setSelectionMode(enabled) {
         root.classList.toggle("is-selection-mode", Boolean(enabled));

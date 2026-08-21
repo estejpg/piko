@@ -1,9 +1,17 @@
 (function () {
+  // Slim MAIN-world helper. It no longer serves media data over an RPC bridge.
+  // Its only jobs are:
+  //   1. Stash the Instagram web API headers (app id + www claim) in sessionStorage,
+  //      which is shared with the isolated content script. All media resolution now
+  //      happens in the content script against Instagram's public web REST API.
+  //   2. Emit SPA route-change events by patching the History API.
+  //   3. Tag rendered media elements with their numeric media id (read from React
+  //      fiber props) so feed/reels items without permalink anchors stay downloadable.
   const BRIDGE_SOURCE = "ig-bulk-bridge";
-  const CONTENT_SOURCE = "ig-bulk-content";
-  const REQUEST_MEDIA = "IG_BULK_REQUEST_MEDIA";
-  const RESPONSE_MEDIA = "IG_BULK_RESPONSE_MEDIA";
   const ROUTE_CHANGE = "IG_BULK_ROUTE_CHANGE";
+  const APP_ID_KEY = "__piko_ig_app_id";
+  const CLAIM_KEY = "__piko_ig_www_claim";
+  const MEDIA_ID_ATTR = "data-ig-bulk-media-id";
 
   function emitRouteChange() {
     window.postMessage(
@@ -37,101 +45,40 @@
     return null;
   }
 
-  async function loadPostFromShortcode(shortcode) {
-    const relay = getRequireModule("CometRelay");
-    const environment = getRequireModule("PolarisRelayEnvironment");
-    const postQuery = getRequireModule("PolarisPostActionLoadPostQuery");
+  function stashApiHeaders() {
+    let stashedAppId = false;
+    let stashedClaim = false;
 
-    if (relay && environment && postQuery && postQuery.POST_QUERY) {
-      const result = await relay
-        .fetchQuery(environment, postQuery.POST_QUERY, {
-          child_comment_count: 3,
-          fetch_comment_count: 10,
-          has_threaded_comments: true,
-          parent_comment_count: 10,
-          shortcode
-        })
-        .toPromise();
-
-      const media = result && result.xdt_shortcode_media;
-      if (media && media.__fragments) {
-        return (
-          media.__fragments.PolarisPostActionLoadPostQueryInlineFragment ||
-          media.__fragments.PolarisPostActionLoadPostQueryInlineFragmentWithoutRelatedProfiles ||
-          media
-        );
+    try {
+      const config = getRequireModule("PolarisConfig");
+      const appId = config && typeof config.getIGAppID === "function" ? config.getIGAppID() : "";
+      if (appId) {
+        sessionStorage.setItem(APP_ID_KEY, String(appId));
+        stashedAppId = true;
       }
-      return media || null;
+    } catch (error) {
+      stashedAppId = false;
     }
 
-    return null;
-  }
-
-  async function instapiGet(url, query) {
-    const instapi = getRequireModule("PolarisInstapi");
-    if (!instapi || typeof instapi.apiGet !== "function") {
-      throw new Error("PolarisInstapi is unavailable on this page.");
+    try {
+      const claimModule = getRequireModule("PolarisWWWClaim");
+      const claim = claimModule && typeof claimModule.getWWWClaim === "function" ? claimModule.getWWWClaim() : "";
+      if (claim) {
+        sessionStorage.setItem(CLAIM_KEY, String(claim));
+        stashedClaim = true;
+      }
+    } catch (error) {
+      stashedClaim = false;
     }
-    const result = await instapi.apiGet(url, { query: query || {} });
-    return result && Object.prototype.hasOwnProperty.call(result, "data") ? result.data : result;
+
+    return stashedAppId && stashedClaim;
   }
 
-  function trayEntries(payload) {
-    if (!payload) return [];
-    if (Array.isArray(payload.tray)) return payload.tray;
-    if (Array.isArray(payload.reels)) return payload.reels;
-    if (payload.tray && typeof payload.tray === "object") return Object.values(payload.tray);
-    return [];
-  }
-
-  function reelIdFromTrayEntry(entry) {
-    if (!entry) return "";
-    return String(entry.id || entry.reel_id || (entry.user && (entry.user.pk || entry.user.id)) || "");
-  }
-
-  function usernameFromTrayEntry(entry) {
-    if (!entry) return "";
-    return String((entry.user && entry.user.username) || entry.username || "").toLowerCase();
-  }
-
-  async function resolveStoryReelId(username, highlightId) {
-    if (highlightId) return `highlight:${highlightId}`;
-    const tray = await instapiGet("/api/v1/feed/reels_tray/", { is_following_feed: false });
-    const wanted = String(username || "").toLowerCase();
-    const match = trayEntries(tray).find((entry) => usernameFromTrayEntry(entry) === wanted);
-    const reelId = reelIdFromTrayEntry(match);
-    if (!reelId) throw new Error("Story reel was not found in the tray.");
-    return reelId;
-  }
-
-  async function loadStoryReelMedia(options) {
-    const username = options && options.username;
-    const highlightId = options && options.highlightId;
-    const mediaId = options && options.mediaId ? String(options.mediaId) : "";
-    const all = Boolean(options && options.all);
-
-    const reelId = await resolveStoryReelId(username, highlightId);
-    const payload = await instapiGet("/api/v1/feed/reels_media/", {
-      reel_ids: String(reelId),
-      media_id: mediaId || undefined
-    });
-
-    const reelsMedia = Array.isArray(payload && payload.reels_media)
-      ? payload.reels_media
-      : payload && payload.reels && payload.reels[reelId]
-        ? [payload.reels[reelId]]
-        : [];
-    const reel = reelsMedia[0] || (payload && payload.reels && payload.reels[reelId]) || null;
-    const items = reel && Array.isArray(reel.items) ? reel.items : [];
-    const user = (reel && reel.user) || (payload && payload.reels && payload.reels[reelId] && payload.reels[reelId].user) || null;
-    const filtered = !all && mediaId ? items.filter((item) => String(item.pk || item.id) === mediaId) : items;
-
-    return {
-      reelId,
-      user,
-      items: filtered.length ? filtered : items,
-      all
-    };
+  function stashApiHeadersWithRetry(attempt) {
+    if (stashApiHeaders()) return;
+    const nextAttempt = (attempt || 0) + 1;
+    if (nextAttempt > 20) return;
+    setTimeout(() => stashApiHeadersWithRetry(nextAttempt), Math.min(250 * nextAttempt, 2000));
   }
 
   function getReactMediaIdFromNode(node) {
@@ -159,47 +106,9 @@
     const nodes = scope.querySelectorAll("article, a[href*='/p/'], a[href*='/reel/'], img, video");
     nodes.forEach((node) => {
       const id = getReactMediaIdFromNode(node) || getReactMediaIdFromNode(node.parentElement);
-      if (id) node.setAttribute("data-ig-bulk-media-id", id);
+      if (id) node.setAttribute(MEDIA_ID_ATTR, id);
     });
   }
-
-  patchHistoryMethod("pushState");
-  patchHistoryMethod("replaceState");
-  window.addEventListener("popstate", emitRouteChange);
-  window.addEventListener("locationchange", emitRouteChange);
-
-  window.addEventListener("message", async (event) => {
-    if (event.source !== window || event.origin !== location.origin) return;
-    const message = event.data || {};
-    if (message.source !== CONTENT_SOURCE || message.type !== REQUEST_MEDIA) return;
-
-    let payload = null;
-    let error = null;
-
-    try {
-      if (message.kind === "postByShortcode") {
-        payload = await loadPostFromShortcode(message.shortcode);
-      } else if (message.kind === "storyReelMedia") {
-        payload = await loadStoryReelMedia(message);
-      } else if (message.kind === "markMediaIds") {
-        markVisibleMediaIds(document);
-        payload = { ok: true };
-      }
-    } catch (err) {
-      error = err && err.message ? err.message : String(err);
-    }
-
-    window.postMessage(
-      {
-        source: BRIDGE_SOURCE,
-        type: RESPONSE_MEDIA,
-        requestId: message.requestId,
-        payload,
-        error
-      },
-      location.origin
-    );
-  });
 
   const pendingMarkRoots = new Set();
   let markTimer = null;
@@ -220,16 +129,20 @@
       for (const node of record.addedNodes) {
         if (node.nodeType !== Node.ELEMENT_NODE) continue;
         if (node.id && String(node.id).startsWith("ig-bulk")) continue;
-        if (node.matches && (node.matches("article, a[href*='/p/'], a[href*='/reel/'], img, video") || node.querySelector("article, a[href*='/p/'], a[href*='/reel/'], img, video"))) {
+        if (
+          node.matches &&
+          (node.matches("article, a[href*='/p/'], a[href*='/reel/'], img, video") ||
+            node.querySelector("article, a[href*='/p/'], a[href*='/reel/'], img, video"))
+        ) {
           scheduleMarkVisibleMediaIds(node);
         }
       }
     }
   });
 
-  function startObserver() {
+  function start() {
     if (!document.body) {
-      setTimeout(startObserver, 50);
+      setTimeout(start, 50);
       return;
     }
     observer.observe(document.body, { childList: true, subtree: true });
@@ -237,5 +150,17 @@
     emitRouteChange();
   }
 
-  startObserver();
+  patchHistoryMethod("pushState");
+  patchHistoryMethod("replaceState");
+  window.addEventListener("popstate", emitRouteChange);
+  window.addEventListener("locationchange", emitRouteChange);
+
+  stashApiHeadersWithRetry(0);
+  // Instagram rotates the www claim after auth events; refresh the stash when its
+  // own storage changes so long-lived tabs keep sending a valid claim header.
+  window.addEventListener("storage", (event) => {
+    if (event.key && !String(event.key).startsWith("__piko")) stashApiHeaders();
+  });
+
+  start();
 })();

@@ -7,7 +7,6 @@
     const buttons = [
       dockButton("current", "Download current post or reel", "download", "Current"),
       actions.select ? dockButton("select", "Select media", "select", "Select") : "",
-      actions.thumbnail ? dockButton("thumbnail", "Toggle thumbnail mode", "thumbnail", "Thumbs") : "",
       dockButton("folder", "Change folder", "folder", "Folder"),
       dockButton("options", "Open settings", "settings", "Settings")
     ].join("");
@@ -36,14 +35,6 @@
           button.setAttribute("aria-pressed", enabled ? "true" : "false");
         }
         root.classList.toggle("is-suppressed", Boolean(enabled));
-      },
-      setThumbnailMode(enabled) {
-        const button = root.querySelector('button[data-action="thumbnail"]');
-        if (!button) return;
-        button.classList.toggle("is-thumbnail-active", Boolean(enabled));
-        button.setAttribute("aria-pressed", enabled ? "true" : "false");
-        button.title = enabled ? "Disable thumbnail mode" : button.dataset.defaultTitle || "";
-        button.setAttribute("aria-label", enabled ? "Disable thumbnail mode" : button.dataset.defaultTitle || "");
       },
       setStatus(message) {
         const status = root.querySelector('[data-role="status"]');

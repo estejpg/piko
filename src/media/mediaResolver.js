@@ -1,5 +1,23 @@
 (function () {
+  // Instagram media resolution, rebuilt around Instagram's own web REST API.
+  //
+  // Strategy (in order of preference):
+  //   1. Decode the numeric media id straight from the shortcode (pure base64 math,
+  //      no network and no page-runtime dependency), then GET
+  //      /api/v1/media/{id}/info/ with the web app-id/claim headers.
+  //   2. For elements without permalinks, use the media id the MAIN-world bridge
+  //      tagged onto the DOM (data-ig-bulk-media-id) with the same info endpoint.
+  //   3. As a last resort, collect media URLs already rendered in the DOM.
+  //
+  // Profile bulk downloads paginate /api/v1/feed/user/{username}/username/ so they
+  // cover the entire profile instead of only the tiles that happen to be rendered.
   const SAFE_EXT_RE = /\.([0-9a-z]+)(?:[?#]|$)/i;
+  const SHORTCODE_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+  // Instagram's public web app id; used only when the bridge stash is unavailable.
+  const FALLBACK_WEB_APP_ID = "936619743392459";
+  const APP_ID_KEY = "__piko_ig_app_id";
+  const CLAIM_KEY = "__piko_ig_www_claim";
+  const MEDIA_ID_ATTR = "data-ig-bulk-media-id";
 
   function sanitizeFilenamePart(value) {
     return String(value || "unknown")
@@ -16,102 +34,217 @@
     return mediaType === "video" ? "mp4" : "jpg";
   }
 
-  function candidateArea(candidate) {
-    return (candidate.width || candidate.config_width || 0) * (candidate.height || candidate.config_height || 0);
+  function mediaIdFromShortcode(shortcode) {
+    let code = String(shortcode || "");
+    if (!code) return "";
+    // Share links append a 28-character suffix after the real shortcode.
+    if (code.length > 28) code = code.slice(0, code.length - 28);
+    let id = 0n;
+    for (const char of code) {
+      const value = SHORTCODE_ALPHABET.indexOf(char);
+      if (value < 0) return "";
+      id = id * 64n + BigInt(value);
+    }
+    return id.toString();
   }
 
-  function bestCandidateUrl(candidates) {
+  function shortcodeFromMediaId(mediaId) {
+    let id;
+    try {
+      id = BigInt(String(mediaId || ""));
+    } catch (error) {
+      return "";
+    }
+    if (id <= 0n) return "";
+    let code = "";
+    while (id > 0n) {
+      code = SHORTCODE_ALPHABET[Number(id % 64n)] + code;
+      id /= 64n;
+    }
+    return code;
+  }
+
+  function storedHeader(key) {
+    try {
+      return sessionStorage.getItem(key) || "";
+    } catch (error) {
+      return "";
+    }
+  }
+
+  function apiHeaders() {
+    const headers = {
+      accept: "*/*",
+      "x-ig-app-id": storedHeader(APP_ID_KEY) || FALLBACK_WEB_APP_ID
+    };
+    // Instagram's web app persists its own claim under www-claim-v2.
+    const claim = storedHeader(CLAIM_KEY) || storedHeader("www-claim-v2");
+    if (claim) headers["x-ig-www-claim"] = claim;
+    return headers;
+  }
+
+  async function apiGet(path, params) {
+    const url = new URL(path, "https://www.instagram.com");
+    Object.entries(params || {}).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== "") url.searchParams.set(key, value);
+    });
+
+    const response = await fetch(url.toString(), {
+      headers: apiHeaders(),
+      credentials: "include"
+    });
+
+    if (response.status === 429) {
+      const error = new Error("Instagram is temporarily limiting requests. Please try again in a few minutes.");
+      error.code = "RATE_LIMITED";
+      throw error;
+    }
+    if (!response.ok) {
+      const error = new Error(`Instagram API request failed: ${response.status}`);
+      error.status = response.status;
+      throw error;
+    }
+    return response.json();
+  }
+
+  function bestVersionUrl(candidates) {
     if (!Array.isArray(candidates) || !candidates.length) return "";
-    const candidate = candidates
-      .filter(Boolean)
-      .slice()
-      .sort((a, b) => candidateArea(b) - candidateArea(a))[0];
-    return (candidate && (candidate.url || candidate.src)) || "";
+    let best = null;
+    for (const candidate of candidates) {
+      if (!candidate || !candidate.url) continue;
+      if (!best || (candidate.width || 0) * (candidate.height || 0) > (best.width || 0) * (best.height || 0)) {
+        best = candidate;
+      }
+    }
+    return (best && best.url) || "";
   }
 
-  function bestImageUrl(node) {
-    if (!node) return "";
+  function isVideoApiItem(item) {
+    return Boolean(item && ((item.video_versions && item.video_versions.length) || item.media_type === 2));
+  }
+
+  function ownerFromApiItem(item, parent) {
     return (
-      bestCandidateUrl(node.display_resources) ||
-      bestCandidateUrl(node.image_versions2 && node.image_versions2.candidates) ||
-      bestCandidateUrl(node.image_versions && node.image_versions.candidates) ||
-      node.display_url ||
-      node.thumbnail_src ||
-      node.src ||
+      (item && item.user && item.user.username) ||
+      (item && item.owner && item.owner.username) ||
+      (parent && parent.user && parent.user.username) ||
+      (parent && parent.owner && parent.owner.username) ||
       ""
     );
   }
 
-  function bestVideoUrl(node) {
-    if (!node) return "";
-    return node.video_url || bestCandidateUrl(node.video_versions) || "";
-  }
-
-  function ownerUsername(node, parent) {
-    return (
-      (node && node.owner && node.owner.username) ||
-      (node && node.user && node.user.username) ||
-      (parent && parent.owner && parent.owner.username) ||
-      (parent && parent.user && parent.user.username) ||
-      "instagram"
-    );
-  }
-
-  function takenAtTimestamp(node, parent) {
-    return (
-      (node && (node.taken_at_timestamp || node.taken_at)) ||
-      (parent && (parent.taken_at_timestamp || parent.taken_at)) ||
-      Math.floor(Date.now() / 1000)
-    );
-  }
-
-  function mediaNodeId(node, parent, index) {
-    return (
-      (node && (node.id || node.pk || node.code || node.shortcode)) ||
-      (parent && (parent.id || parent.pk || parent.code || parent.shortcode)) ||
-      `${Date.now()}-${index + 1}`
-    );
-  }
-
-  function isVideoNode(node) {
-    return Boolean(node && (node.is_video || node.video_url || node.media_type === 2 || (node.video_versions && node.video_versions.length)));
-  }
-
-  function normalizeMediaNode(node, parent, index) {
-    const order = Number.isFinite(index) ? index + 1 : 1;
-    const owner = ownerUsername(node, parent);
-    const takenAt = takenAtTimestamp(node, parent);
-    const mediaType = isVideoNode(node) ? "video" : "image";
-    const url = mediaType === "video" ? bestVideoUrl(node) : bestImageUrl(node);
-    const id = mediaNodeId(node, parent, index || 0);
+  function normalizeApiChild(child, parent, index, fallbackUsername) {
+    if (!child) return null;
+    const mediaType = isVideoApiItem(child) ? "video" : "image";
+    const url =
+      mediaType === "video"
+        ? bestVersionUrl(child.video_versions)
+        : bestVersionUrl(child.image_versions2 && child.image_versions2.candidates);
     if (!url) return null;
+
     return buildMediaItem({
-      id,
-      ownerUsername: owner,
-      takenAt,
+      id: child.pk || child.id || `${Date.now()}-${index + 1}`,
+      ownerUsername: ownerFromApiItem(child, parent) || fallbackUsername || "instagram",
+      takenAt: child.taken_at || (parent && parent.taken_at) || Math.floor(Date.now() / 1000),
       mediaType,
       url,
-      order,
-      sourcePostId: parent && (parent.id || parent.pk || parent.shortcode || parent.code)
+      order: index + 1,
+      sourcePostId: (parent && (parent.pk || parent.id)) || ""
     });
   }
 
-  function normalizeThumbnailNode(node, parent, index) {
-    const order = Number.isFinite(index) ? index + 1 : 1;
-    const owner = ownerUsername(node, parent);
-    const takenAt = takenAtTimestamp(node, parent);
-    const url = bestImageUrl(node);
-    const id = `${mediaNodeId(node, parent, index || 0)}-thumbnail`;
-    if (!url) return null;
-    return buildMediaItem({
-      id,
-      ownerUsername: owner,
-      takenAt,
-      mediaType: "image",
-      url,
-      order,
-      sourcePostId: parent && (parent.id || parent.pk || parent.shortcode || parent.code)
+  function normalizeApiMedia(item, options) {
+    if (!item) return [];
+    const fallbackUsername = options && options.fallbackUsername;
+    if (Array.isArray(item.carousel_media) && item.carousel_media.length) {
+      return item.carousel_media
+        .map((child, index) => normalizeApiChild(child, item, index, fallbackUsername))
+        .filter(Boolean);
+    }
+    return [normalizeApiChild(item, item, 0, fallbackUsername)].filter(Boolean);
+  }
+
+  async function fetchMediaInfoById(mediaId) {
+    if (!mediaId) return null;
+    const data = await apiGet(`/api/v1/media/${mediaId}/info/`);
+    return (data && Array.isArray(data.items) && data.items[0]) || null;
+  }
+
+  async function fetchPostItems(shortcode) {
+    const mediaId = mediaIdFromShortcode(shortcode);
+    if (!mediaId) return [];
+    const item = await fetchMediaInfoById(mediaId);
+    return normalizeApiMedia(item);
+  }
+
+  async function fetchMediaItemsById(mediaId) {
+    const item = await fetchMediaInfoById(mediaId);
+    return normalizeApiMedia(item);
+  }
+
+  async function fetchUserInfo(username) {
+    if (!username) return null;
+    const data = await apiGet("/api/v1/users/web_profile_info/", { username });
+    const user = data && data.data && data.data.user;
+    if (!user) return null;
+    return {
+      id: String(user.id || user.pk || ""),
+      username: user.username || username,
+      totalPosts: (user.edge_owner_to_timeline_media && user.edge_owner_to_timeline_media.count) || 0
+    };
+  }
+
+  async function fetchProfileFeedPage(username, maxId) {
+    const data = await apiGet(`/api/v1/feed/user/${encodeURIComponent(username)}/username/`, {
+      count: 12,
+      max_id: maxId || undefined
     });
+    const rawItems = data && Array.isArray(data.items) ? data.items : [];
+    const items = [];
+    rawItems.forEach((item) => items.push(...normalizeApiMedia(item)));
+    return {
+      items,
+      nextMaxId: data && data.more_available && data.next_max_id ? String(data.next_max_id) : ""
+    };
+  }
+
+  async function fetchStoryItems(options) {
+    const username = options && options.username;
+    const highlightId = options && options.highlightId;
+    const mediaId = options && options.mediaId ? String(options.mediaId) : "";
+    const all = Boolean(options && options.all);
+
+    let reelId = "";
+    if (highlightId) {
+      reelId = `highlight:${highlightId}`;
+    } else {
+      // A user's story reel id is their numeric user id.
+      const user = await fetchUserInfo(username);
+      reelId = user && user.id;
+    }
+    if (!reelId) return [];
+
+    const data = await apiGet("/api/v1/feed/reels_media/", {
+      reel_ids: reelId,
+      media_id: mediaId || undefined
+    });
+
+    const reel =
+      (Array.isArray(data && data.reels_media) && data.reels_media[0]) ||
+      (data && data.reels && data.reels[reelId]) ||
+      null;
+    const items = reel && Array.isArray(reel.items) ? reel.items : [];
+    const reelUser = (reel && reel.user) || null;
+    const wanted = !all && mediaId ? items.filter((item) => String(item.pk || item.id) === mediaId) : items;
+    const source = wanted.length ? wanted : items;
+
+    const normalized = [];
+    source.forEach((item) => {
+      normalized.push(
+        ...normalizeApiMedia(item, { fallbackUsername: (reelUser && reelUser.username) || username })
+      );
+    });
+    return normalized;
   }
 
   function buildMediaItem(input) {
@@ -134,52 +267,38 @@
     };
   }
 
-  function normalizePost(post) {
-    if (!post) return [];
-    const children = post.edge_sidecar_to_children && post.edge_sidecar_to_children.edges;
-    if (children && children.length) {
-      return children.map((edge, index) => normalizeMediaNode(edge.node || edge, post, index)).filter(Boolean);
-    }
-    if (Array.isArray(post.carousel_media)) {
-      return post.carousel_media.map((item, index) => normalizeMediaNode(item, post, index)).filter(Boolean);
-    }
-    if (post.carousel_media && Array.isArray(post.carousel_media.edges)) {
-      return post.carousel_media.edges.map((edge, index) => normalizeMediaNode(edge.node || edge, post, index)).filter(Boolean);
-    }
-    return [normalizeMediaNode(post, post, 0)].filter(Boolean);
-  }
-
-  function normalizePostThumbnails(post) {
-    if (!post) return [];
-    const children = post.edge_sidecar_to_children && post.edge_sidecar_to_children.edges;
-    if (children && children.length) {
-      return children.map((edge, index) => normalizeThumbnailNode(edge.node || edge, post, index)).filter(Boolean);
-    }
-    if (Array.isArray(post.carousel_media)) {
-      return post.carousel_media.map((item, index) => normalizeThumbnailNode(item, post, index)).filter(Boolean);
-    }
-    if (post.carousel_media && Array.isArray(post.carousel_media.edges)) {
-      return post.carousel_media.edges.map((edge, index) => normalizeThumbnailNode(edge.node || edge, post, index)).filter(Boolean);
-    }
-    return [normalizeThumbnailNode(post, post, 0)].filter(Boolean);
-  }
-
   function shortcodeFromUrl(url) {
     try {
       const path = new URL(url, location.origin).pathname;
-      const match = path.match(/\/(?:p|reel|tv)\/([^/?#]+)/);
+      const match = path.match(/\/(?:p|reels?|tv)\/([^/?#]+)/);
       return match ? match[1] : null;
     } catch (error) {
       return null;
     }
   }
 
-  function collectProfileShortcodes() {
+  function mediaIdFromElement(root) {
+    if (!root || !root.querySelectorAll) return "";
+    if (root.getAttribute && root.getAttribute(MEDIA_ID_ATTR)) return root.getAttribute(MEDIA_ID_ATTR);
+    const marked = root.querySelector(`[${MEDIA_ID_ATTR}]`);
+    return (marked && marked.getAttribute(MEDIA_ID_ATTR)) || "";
+  }
+
+  function collectProfileShortcodes(options) {
+    const visibleOnly = Boolean(options && options.visibleOnly);
+    const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
+    const viewportWidth = window.innerWidth || document.documentElement.clientWidth;
     const anchors = Array.from(document.querySelectorAll("a[href*='/p/'], a[href*='/reel/'], a[href*='/tv/']"));
     const unique = new Map();
     anchors.forEach((anchor) => {
       const shortcode = shortcodeFromUrl(anchor.href);
-      if (shortcode && !unique.has(shortcode)) unique.set(shortcode, anchor.href);
+      if (!shortcode || unique.has(shortcode)) return;
+      if (visibleOnly) {
+        const rect = anchor.getBoundingClientRect();
+        const visible = rect.bottom > 0 && rect.right > 0 && rect.top < viewportHeight && rect.left < viewportWidth;
+        if (!visible || rect.width < 40 || rect.height < 40) return;
+      }
+      unique.set(shortcode, anchor.href);
     });
     return Array.from(unique.keys());
   }
@@ -199,7 +318,7 @@
       const mediaType = node.tagName === "VIDEO" ? "video" : "image";
       items.push(
         buildMediaItem({
-          id: node.getAttribute("data-ig-bulk-media-id") || index,
+          id: node.getAttribute(MEDIA_ID_ATTR) || index,
           ownerUsername: usernameFromPath() || "instagram",
           takenAt: Math.floor(Date.now() / 1000),
           mediaType,
@@ -212,38 +331,32 @@
     return dedupeByUrl(items);
   }
 
-  function collectVisibleDomThumbnails(root) {
-    const scope = root && root.querySelectorAll ? root : document;
-    const candidates = Array.from(scope.querySelectorAll("article img, main img, article video, main video"));
-    const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
-    const viewportWidth = window.innerWidth || document.documentElement.clientWidth;
-    const items = [];
-
-    candidates.forEach((node, index) => {
-      const rect = node.getBoundingClientRect();
-      const visible = rect.bottom > 0 && rect.right > 0 && rect.top < viewportHeight && rect.left < viewportWidth;
-      if (!visible || rect.width < 80 || rect.height < 80) return;
-      const url = node.tagName === "VIDEO" ? node.getAttribute("poster") : node.currentSrc || node.src;
-      if (!url || url.startsWith("data:")) return;
-      items.push(
-        buildMediaItem({
-          id: `${node.getAttribute("data-ig-bulk-media-id") || index}-thumbnail`,
+  function collectDomMediaWithin(root) {
+    if (!root || !root.querySelectorAll) return [];
+    const nodes = Array.from(root.querySelectorAll("video, img"));
+    const items = nodes
+      .map((node, index) => {
+        const rect = node.getBoundingClientRect();
+        if (rect.width < 80 || rect.height < 80) return null;
+        const url = node.currentSrc || node.src;
+        if (!url || url.startsWith("data:")) return null;
+        return buildMediaItem({
+          id: node.getAttribute(MEDIA_ID_ATTR) || index,
           ownerUsername: usernameFromPath() || "instagram",
           takenAt: Math.floor(Date.now() / 1000),
-          mediaType: "image",
+          mediaType: node.tagName === "VIDEO" ? "video" : "image",
           url,
           order: index + 1
-        })
-      );
-    });
-
+        });
+      })
+      .filter(Boolean);
     return dedupeByUrl(items);
   }
 
   function usernameFromPath() {
     const match = location.pathname.match(/^\/([^/?#]+)\/?/);
     if (!match) return null;
-    const reserved = new Set(["", "p", "reel", "tv", "stories", "explore", "direct", "accounts"]);
+    const reserved = new Set(["", "p", "reel", "reels", "tv", "stories", "explore", "direct", "accounts"]);
     return reserved.has(match[1]) ? null : match[1];
   }
 
@@ -254,16 +367,6 @@
       seen.add(item.url);
       return true;
     });
-  }
-
-  async function fetchPostFallback(shortcode) {
-    const query = encodeURIComponent(JSON.stringify({ shortcode }));
-    const response = await fetch(
-      `https://www.instagram.com/graphql/query/?query_hash=477b65a610463740ccdb83135b2014db&variables=${query}`
-    );
-    if (!response.ok) throw new Error(`Instagram fallback failed: ${response.status}`);
-    const data = await response.json();
-    return data && data.data && data.data.shortcode_media;
   }
 
   function parseStoryRoute(pathname) {
@@ -289,28 +392,6 @@
       };
     }
     return null;
-  }
-
-  function normalizeStoryItems(payload, options) {
-    const items = payload && Array.isArray(payload.items) ? payload.items : [];
-    const user = (payload && payload.user) || null;
-    const mediaId = options && options.mediaId ? String(options.mediaId) : "";
-    const onlyCurrent = Boolean(options && options.onlyCurrent);
-    const selected = onlyCurrent && mediaId
-      ? items.filter((item) => String(item.pk || item.id) === mediaId)
-      : items;
-    const source = selected.length ? selected : items;
-    return source
-      .map((item, index) => {
-        const normalized = normalizeMediaNode(item, { user, owner: user, id: item && (item.pk || item.id) }, index);
-        if (!normalized) return null;
-        return {
-          ...normalized,
-          ownerUsername: (user && user.username) || normalized.ownerUsername,
-          sourcePostId: String((payload && payload.reelId) || (item && (item.pk || item.id)) || "")
-        };
-      })
-      .filter(Boolean);
   }
 
   function collectVisibleStoryDomMedia(username) {
@@ -340,7 +421,7 @@
     if (!url || url.startsWith("data:")) return [];
     return [
       buildMediaItem({
-        id: best.getAttribute("data-ig-bulk-media-id") || `story-${Date.now()}`,
+        id: best.getAttribute(MEDIA_ID_ATTR) || `story-${Date.now()}`,
         ownerUsername: username || usernameFromPath() || "instagram",
         takenAt: Math.floor(Date.now() / 1000),
         mediaType: best.tagName === "VIDEO" ? "video" : "image",
@@ -352,19 +433,23 @@
 
   window.IgBulkMediaResolver = {
     buildMediaItem,
+    collectDomMediaWithin,
     collectProfileShortcodes,
     collectVisibleDomMedia,
     collectVisibleStoryDomMedia,
     dedupeByUrl,
-    fetchPostFallback,
-    collectVisibleDomThumbnails,
-    normalizePost,
-    normalizePostThumbnails,
-    normalizeStoryItems,
+    fetchMediaItemsById,
+    fetchPostItems,
+    fetchProfileFeedPage,
+    fetchStoryItems,
+    fetchUserInfo,
+    mediaIdFromElement,
+    mediaIdFromShortcode,
+    normalizeApiMedia,
     parseStoryRoute,
     sanitizeFilenamePart,
+    shortcodeFromMediaId,
     shortcodeFromUrl,
     usernameFromPath
   };
 })();
-
