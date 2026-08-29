@@ -204,6 +204,8 @@ download everything.
   - Download-history record/list/getLastBatch roundtrip against a mocked `chrome.storage.local`.
 - `scripts/smoke-instagram.mjs`
   - Instagram resolver coverage: shortcode/media-id math, REST payload normalization, URL and story-route parsing.
+- `scripts/smoke-transcript.mjs`
+  - YouTube transcript extraction against a fake watch-page DOM: chapter panels must never be scraped as transcript content, panel rows are extracted cleanly, and the caption-track fallback engages when no transcript panel exists.
 
 ### UI System
 
@@ -284,7 +286,7 @@ Internal class names still use the historical `ig-bulk-*` namespace. That is imp
    - homepage card thumbnail download/select
    - recommended/sidebar thumbnail download/select
    - selected-thumbnail dock preview and batch download
-4. Run `node scripts/smoke.mjs`, `node scripts/smoke-history.mjs`, and `node scripts/smoke-instagram.mjs` after shared-module or resolver changes.
+4. Run `node scripts/smoke.mjs`, `node scripts/smoke-history.mjs`, `node scripts/smoke-instagram.mjs`, and `node scripts/smoke-transcript.mjs` after shared-module, resolver, or transcript changes.
 5. Consider adding extension icons/assets before Chrome Web Store packaging.
 
 ## Git Notes

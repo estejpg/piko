@@ -125,6 +125,40 @@
     return Boolean(element && element.closest && element.closest("#ig-bulk-youtube-control, .ig-bulk-youtube-control"));
   }
 
+  // Chapter surfaces (the Chapters engagement panel, description chapter cards, and
+  // chapter section headers inside the transcript panel) contain timestamp+title rows
+  // that look like transcript segments but are only a chapter index. They must never
+  // be scraped as transcript content.
+  const CHAPTER_SCOPE_SELECTOR = [
+    "ytd-macro-markers-list-item-renderer",
+    "ytd-macro-markers-list-renderer",
+    "ytd-chapter-renderer",
+    "ytd-horizontal-card-list-renderer",
+    "ytd-transcript-section-header-renderer",
+    '[target-id*="macro-markers"]',
+    '[target-id*="chapters"]'
+  ].join(", ");
+
+  function isChapterElement(element) {
+    return Boolean(element && element.closest && element.closest(CHAPTER_SCOPE_SELECTOR));
+  }
+
+  function isCollapsedEngagementPanel(element) {
+    const panel =
+      element && element.closest ? element.closest("ytd-engagement-panel-section-list-renderer") : null;
+    if (!panel) return false;
+    const visibility = normalizeLine(panel.getAttribute && panel.getAttribute("visibility")).toUpperCase();
+    return Boolean(visibility) && visibility !== "ENGAGEMENT_PANEL_VISIBILITY_EXPANDED";
+  }
+
+  function readableText(element) {
+    if (!element) return "";
+    // innerText excludes hidden content; never fall back to textContent when it is an
+    // empty string, because textContent leaks text from closed engagement panels.
+    if (typeof element.innerText === "string") return element.innerText;
+    return element.textContent || "";
+  }
+
   function transcriptKeywordText(element) {
     const text = [
       element && element.getAttribute && element.getAttribute("aria-label"),
@@ -304,25 +338,31 @@
     return Array.isArray(segments) && segments.some((segment) => segment && segment.text && !TIMESTAMP_RE.test(segment.text));
   }
 
-  function findTranscriptPanelRoot() {
+  function findTranscriptPanelRoot(options) {
+    const requireUsable = !options || options.requireUsable !== false;
     const selectors = [
       "ytd-transcript-search-panel-renderer",
       'ytd-engagement-panel-section-list-renderer[target-id="engagement-panel-searchable-transcript"]',
       "#engagement-panel-searchable-transcript",
       "ytd-transcript-renderer",
-      "ytd-transcript-segment-list-renderer",
-      "#panels ytd-engagement-panel-section-list-renderer"
+      "ytd-transcript-segment-list-renderer"
     ];
 
+    const usable = (element) => {
+      if (!element || isChapterElement(element)) return false;
+      if (!requireUsable) return true;
+      return visibleEnough(element) && !isCollapsedEngagementPanel(element);
+    };
+
     for (const selector of selectors) {
-      const element = queryDeep(selector);
-      if (element && visibleEnough(element)) return element;
+      const element = deepQueryAll(document, (candidate) => candidate.matches && candidate.matches(selector)).find(usable);
+      if (element) return element;
     }
 
     const byTranscriptTarget = deepQueryAll(document, (element) => {
       const targetId = normalizeLine(element.getAttribute && element.getAttribute("target-id")).toLowerCase();
       return targetId.includes("transcript");
-    }).find(visibleEnough);
+    }).find(usable);
 
     return byTranscriptTarget || null;
   }
@@ -330,11 +370,13 @@
   function collectTranscriptPanelCandidates() {
     const candidates = new Set();
     const add = (element) => {
-      if (element && element.nodeType === Node.ELEMENT_NODE && visibleEnough(element)) candidates.add(element);
+      if (!element || element.nodeType !== Node.ELEMENT_NODE) return;
+      if (isChapterElement(element) || isCollapsedEngagementPanel(element)) return;
+      if (!visibleEnough(element)) return;
+      candidates.add(element);
     };
 
     add(findTranscriptPanelRoot());
-    add(queryDeep("#panels"));
 
     deepQueryAll(document, (element) => {
       const tag = (element.tagName || "").toLowerCase();
@@ -375,7 +417,9 @@
   }
 
   function scrapeTranscriptRows(root) {
-    const scope = root || findTranscriptPanelRoot() || document;
+    const scope = root || findTranscriptPanelRoot();
+    if (!scope) return [];
+
     const rowSelectors = [
       "ytd-transcript-segment-renderer",
       "transcript-segment-view-model",
@@ -390,6 +434,7 @@
       deepQueryAll(scope, (element) => element.matches && element.matches(selector)).forEach((row) => {
         if (seen.has(row)) return;
         seen.add(row);
+        if (isChapterElement(row) || isCollapsedEngagementPanel(row)) return;
         rows.push(row);
       });
     });
@@ -412,7 +457,7 @@
       const rowSegments = scrapeTranscriptRows(root);
       if (rowSegments.length > bestSegments.length) bestSegments = rowSegments;
 
-      const plainSegments = parsePlainTranscriptText(root.innerText || root.textContent || "");
+      const plainSegments = parsePlainTranscriptText(readableText(root));
       if (plainSegments.length > bestSegments.length) bestSegments = plainSegments;
     }
 
@@ -483,7 +528,7 @@
   }
 
   async function openTranscriptPanel() {
-    if (segmentsHaveText(scrapeTranscriptFromDom())) {
+    if (findTranscriptPanelRoot() && segmentsHaveText(scrapeTranscriptFromDom())) {
       log("Transcript panel already appears to be open");
       return true;
     }
@@ -884,7 +929,7 @@
   }
 
   async function checkTranscriptAvailable() {
-    return Boolean(findTranscriptPanelRoot() || findCaptionTracks());
+    return Boolean(findTranscriptPanelRoot({ requireUsable: false }) || findCaptionTracks());
   }
 
   window.IgBulkYouTubeTranscript = {
