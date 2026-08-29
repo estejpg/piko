@@ -204,6 +204,8 @@ download everything.
   - Download-history record/list/getLastBatch roundtrip against a mocked `chrome.storage.local`.
 - `scripts/smoke-instagram.mjs`
   - Instagram resolver coverage: shortcode/media-id math, REST payload normalization, URL and story-route parsing.
+- `scripts/smoke-youtube-transcript.mjs`
+  - YouTube transcript regression coverage: chapter panels are rejected, modern targetless transcript panels are accepted, and spoken row text excludes timestamp accessibility labels.
 
 ### UI System
 
@@ -281,10 +283,11 @@ Internal class names still use the historical `ig-bulk-*` namespace. That is imp
    - full-profile bulk download (Profile action)
 3. Manually verify YouTube:
    - watch-page thumbnail download
+   - watch-page transcript download
    - homepage card thumbnail download/select
    - recommended/sidebar thumbnail download/select
    - selected-thumbnail dock preview and batch download
-4. Run `node scripts/smoke.mjs`, `node scripts/smoke-history.mjs`, and `node scripts/smoke-instagram.mjs` after shared-module or resolver changes.
+4. Run `node scripts/smoke.mjs`, `node scripts/smoke-history.mjs`, `node scripts/smoke-instagram.mjs`, and `node scripts/smoke-youtube-transcript.mjs` after shared-module, resolver, or transcript changes.
 5. Consider adding extension icons/assets before Chrome Web Store packaging.
 
 ## Git Notes

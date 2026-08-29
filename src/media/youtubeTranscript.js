@@ -4,6 +4,11 @@
   const PANEL_SCROLL_MS = 9000;
   const TIMESTAMP_RE = /^\d{1,2}:\d{2}(?::\d{2})?(?:\.\d+)?$/;
   const INLINE_TIMESTAMP_RE = /^(\d{1,2}:\d{2}(?::\d{2})?(?:\.\d+)?)\s+([\s\S]+)$/;
+  const TRANSCRIPT_ROW_SELECTOR = [
+    "ytd-transcript-segment-renderer",
+    "transcript-segment-view-model",
+    "[class*='transcript-segment']"
+  ].join(", ");
 
   function log(message, detail) {
     if (detail === undefined) console.log(`[Piko transcript] ${message}`);
@@ -245,7 +250,7 @@
     if (!row) return "";
 
     const selector =
-      ".segment-timestamp, [class*='segment-timestamp'], [class*='timestamp'], yt-formatted-string.segment-timestamp";
+      ".segment-timestamp, [class*='segment-timestamp'], [class*='timestamp'], [class*='TranscriptSegment'][class*='Timestamp'], yt-formatted-string.segment-timestamp";
     const timestampElement = row.querySelector && row.querySelector(selector);
     const timestampText = normalizeLine(timestampElement && timestampElement.textContent);
     if (TIMESTAMP_RE.test(timestampText)) return timestampText;
@@ -264,7 +269,7 @@
     const textElement =
       (row.querySelector &&
         row.querySelector(
-          ".segment-text, [class*='segment-text'], .yt-core-attributed-string, yt-formatted-string:not(.segment-timestamp)"
+          ".ytwTranscriptSegmentViewModelText, .ytAttributedStringHost[role='text'], .segment-text, [class*='segment-text'], .yt-core-attributed-string, yt-formatted-string:not(.segment-timestamp)"
         )) ||
       null;
 
@@ -304,14 +309,34 @@
     return Array.isArray(segments) && segments.some((segment) => segment && segment.text && !TIMESTAMP_RE.test(segment.text));
   }
 
+  function isTranscriptPanelElement(element) {
+    if (!element) return false;
+
+    const tag = (element.tagName || "").toLowerCase();
+    const targetId = normalizeLine(element.getAttribute && element.getAttribute("target-id")).toLowerCase();
+    if (targetId.includes("transcript")) return true;
+    if (
+      tag === "ytd-transcript-search-panel-renderer" ||
+      tag === "ytd-transcript-renderer" ||
+      tag === "ytd-transcript-segment-list-renderer"
+    ) {
+      return true;
+    }
+
+    return Boolean(
+      tag === "ytd-engagement-panel-section-list-renderer" &&
+      element.querySelector &&
+      element.querySelector(TRANSCRIPT_ROW_SELECTOR)
+    );
+  }
+
   function findTranscriptPanelRoot() {
     const selectors = [
       "ytd-transcript-search-panel-renderer",
       'ytd-engagement-panel-section-list-renderer[target-id="engagement-panel-searchable-transcript"]',
       "#engagement-panel-searchable-transcript",
       "ytd-transcript-renderer",
-      "ytd-transcript-segment-list-renderer",
-      "#panels ytd-engagement-panel-section-list-renderer"
+      "ytd-transcript-segment-list-renderer"
     ];
 
     for (const selector of selectors) {
@@ -319,10 +344,7 @@
       if (element && visibleEnough(element)) return element;
     }
 
-    const byTranscriptTarget = deepQueryAll(document, (element) => {
-      const targetId = normalizeLine(element.getAttribute && element.getAttribute("target-id")).toLowerCase();
-      return targetId.includes("transcript");
-    }).find(visibleEnough);
+    const byTranscriptTarget = deepQueryAll(document, isTranscriptPanelElement).find(visibleEnough);
 
     return byTranscriptTarget || null;
   }
@@ -330,17 +352,17 @@
   function collectTranscriptPanelCandidates() {
     const candidates = new Set();
     const add = (element) => {
-      if (element && element.nodeType === Node.ELEMENT_NODE && visibleEnough(element)) candidates.add(element);
+      if (
+        element &&
+        element.nodeType === Node.ELEMENT_NODE &&
+        visibleEnough(element) &&
+        isTranscriptPanelElement(element)
+      ) {
+        candidates.add(element);
+      }
     };
 
     add(findTranscriptPanelRoot());
-    add(queryDeep("#panels"));
-
-    deepQueryAll(document, (element) => {
-      const tag = (element.tagName || "").toLowerCase();
-      const targetId = normalizeLine(element.getAttribute && element.getAttribute("target-id")).toLowerCase();
-      return tag.includes("transcript") || targetId.includes("transcript");
-    }).forEach(add);
 
     return Array.from(candidates);
   }
@@ -379,9 +401,7 @@
     const rowSelectors = [
       "ytd-transcript-segment-renderer",
       "transcript-segment-view-model",
-      "yt-list-item-view-model",
-      "[class*='transcript-segment']",
-      "[role='listitem']"
+      "[class*='transcript-segment']"
     ];
     const rows = [];
     const seen = new Set();
@@ -410,7 +430,10 @@
 
     for (const root of collectTranscriptPanelCandidates()) {
       const rowSegments = scrapeTranscriptRows(root);
-      if (rowSegments.length > bestSegments.length) bestSegments = rowSegments;
+      if (rowSegments.length) {
+        if (rowSegments.length > bestSegments.length) bestSegments = rowSegments;
+        continue;
+      }
 
       const plainSegments = parsePlainTranscriptText(root.innerText || root.textContent || "");
       if (plainSegments.length > bestSegments.length) bestSegments = plainSegments;
@@ -428,15 +451,21 @@
       "#body",
       "#content",
       "ytd-transcript-segment-list-renderer",
-      "ytd-transcript-search-panel-renderer #body"
+      "ytd-transcript-search-panel-renderer #body",
+      "yt-section-list-renderer"
     ];
 
     for (const selector of selectors) {
       const element = root.querySelector && root.querySelector(selector);
-      if (element && (element.scrollHeight > element.clientHeight || element.children.length)) return element;
+      if (!element) continue;
+      const overflowY = window.getComputedStyle ? window.getComputedStyle(element).overflowY : "";
+      if (element.scrollHeight > element.clientHeight + 4 || /^(auto|scroll)$/.test(overflowY)) return element;
     }
 
-    const scrollable = deepQueryAll(root, (element) => element.scrollHeight > element.clientHeight + 20)[0];
+    const scrollable = deepQueryAll(root, (element) => {
+      const overflowY = window.getComputedStyle ? window.getComputedStyle(element).overflowY : "";
+      return element.scrollHeight > element.clientHeight + 20 || /^(auto|scroll)$/.test(overflowY);
+    })[0];
     return scrollable || root;
   }
 
@@ -450,6 +479,10 @@
     log("Scrolling transcript panel to load all rows");
     const started = Date.now();
     let allSegments = dedupeSegments(scrapeTranscriptFromDom());
+    if (container.scrollHeight <= container.clientHeight + 4) {
+      log("Transcript rows are already fully loaded", { rows: allSegments.length });
+      return allSegments;
+    }
     let stableRounds = 0;
     let lastSignature = "";
 
@@ -504,8 +537,13 @@
     }
 
     const descriptionTranscript = queryDeep("ytd-video-description-transcript-section-renderer");
-    if (clickElement(descriptionTranscript)) {
-      log("Clicked description transcript section");
+    const descriptionTranscriptButton = descriptionTranscript && deepQueryAll(descriptionTranscript, (element) => {
+      if (!(element.matches && element.matches("button, tp-yt-paper-button, ytd-button-renderer button"))) return false;
+      return transcriptKeywordText(element);
+    }).find(visibleEnough);
+
+    if (clickElement(descriptionTranscriptButton)) {
+      log("Clicked Show transcript in the description");
       await sleep(700);
       return true;
     }
@@ -874,6 +912,9 @@
     }
 
     const detail = errors.filter(Boolean).join(" ");
+    if (/No caption tracks found in YouTube player data\./.test(detail) && /Could not open YouTube transcript panel automatically\./.test(detail)) {
+      throw new Error("YouTube has not exposed captions or a transcript panel for this video yet. Try again later.");
+    }
     if (/Could not open YouTube transcript panel automatically/.test(detail)) {
       throw new Error('Could not open YouTube transcript panel automatically. Open "Show transcript" manually, wait for transcript rows, then retry.');
     }
@@ -887,8 +928,19 @@
     return Boolean(findTranscriptPanelRoot() || findCaptionTracks());
   }
 
-  window.IgBulkYouTubeTranscript = {
+  const transcriptApi = {
     extractTranscript,
     checkTranscriptAvailable
   };
+
+  if (window.__PIKO_TEST__) {
+    transcriptApi.__test = {
+      isTranscriptPanelElement,
+      parsePlainTranscriptText,
+      segmentTextFromRow,
+      timestampFromRow
+    };
+  }
+
+  window.IgBulkYouTubeTranscript = transcriptApi;
 })();
